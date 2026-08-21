@@ -1,0 +1,1139 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+@import 'lenis/dist/lenis.css';
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-strong: var(--surface-strong);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-navy: var(--navy);
+  --color-blue: var(--blue);
+  --color-cyan: var(--cyan);
+  --color-cyan-soft: var(--cyan-soft);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+}
+
+:root {
+  color-scheme: dark;
+  --background: #020913;
+  --foreground: #f5f9ff;
+
+  --surface: rgba(7, 24, 46, 0.72);
+  --surface-strong: rgba(6, 20, 39, 0.92);
+
+  --card: rgba(7, 24, 46, 0.72);
+  --card-foreground: #f5f9ff;
+  --popover: #041426;
+  --popover-foreground: #f5f9ff;
+
+  --primary: #0879f9;
+  --primary-foreground: #f5f9ff;
+  --secondary: #062a55;
+  --secondary-foreground: #f5f9ff;
+
+  --muted: rgba(168, 189, 212, 0.12);
+  --muted-foreground: #a8bdd4;
+  --accent: #09c6d9;
+  --accent-foreground: #020817;
+
+  --destructive: oklch(0.62 0.2 25);
+  --border: rgba(34, 164, 255, 0.22);
+  --input: rgba(34, 164, 255, 0.28);
+  --ring: #09c6d9;
+
+  --navy: #062a55;
+  --blue: #0879f9;
+  --cyan: #00d9ff;
+  --cyan-soft: #6deaff;
+
+  --radius: 0.875rem;
+}
+
+/* ==========================================================================
+   Detection-test — hero cinemático
+   --------------------------------------------------------------------------
+   Estructura:
+     .hero-scroll-wrapper   recorrido de scroll (ScrollTrigger fija el viewport)
+       .hero-viewport       la escena visible, siempre 100dvh
+         .hero-clip         recorte duro; nada escapa del viewport
+           .hero-perspective  única perspectiva de la escena
+             .hero-world      contexto 3D con todas las capas
+         .hero-veil         apagado final sin aplanar el 3D
+         .hero-layout       interfaz plana (texto y botones), por encima
+         .side-indicator    interfaz plana
+   El navbar y las métricas viven fuera de este árbol a propósito.
+   ========================================================================== */
+
+.hero-scroll-wrapper {
+  /* Sin altura propia: ScrollTrigger inserta aquí su `pin-spacer` y es él quien
+     define el recorrido (290 vh desktop / 240 vh tablet). Fijar la altura lo
+     anularía y el hero
+     dejaría de quedarse quieto. */
+  position: relative;
+  background: #020913;
+}
+
+.hero-viewport {
+  --hero-persp: 1250;
+  --hero-origin-x: 68%;
+  --hero-origin-y: 44%;
+  --hero-shell: min(100% - 7rem, 1440px);
+  /* Centro de la columna derecha de `.hero-layout`, en fracción del ancho útil:
+     41 % de la primera columna + la mitad de la segunda − el centro. */
+  --stage-offset: 0.205;
+  --stage-width: min(47vw, 670px);
+  --stage-y: calc(50% - 22px);
+
+  position: relative;
+  height: 100dvh;
+  overflow: hidden;
+  isolation: isolate;
+  background: #020913;
+}
+
+.hero-clip { position: absolute; z-index: 0; inset: 0; overflow: clip; }
+
+.hero-perspective {
+  position: absolute;
+  inset: 0;
+  perspective: calc(var(--hero-persp) * 1px);
+  perspective-origin: var(--hero-origin-x) var(--hero-origin-y);
+}
+
+.hero-camera {
+  position: absolute;
+  inset: 0;
+  transform-origin: var(--hero-origin-x) 62%;
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+
+.hero-world {
+  position: absolute;
+  inset: 0;
+  /* Mismo origen que la perspectiva: al inclinar el mundo con el cursor, el
+     punto de fuga se queda quieto y sólo se separan las profundidades. */
+  transform-origin: var(--hero-origin-x) var(--hero-origin-y);
+  transform-style: preserve-3d;
+}
+
+
+/*
+  El mundo lo pinta ahora el Canvas WebGL. Los planos DOM permanecen en el
+  árbol —el anclaje del escenario se sigue midiendo— pero no se pintan: si lo
+  hicieran, cada pieza del holograma saldría dos veces, desalineada y con las
+  mezclas aditivas sumadas encima.
+*/
+.hero-world > .depth-slot { display: none; }
+.hero-world > .depth-slot:has(.hero-canvas) { display: block; }
+.hero-canvas { position: fixed; inset: 0; }
+
+/* --------------------------------------------------------- capas del mundo */
+
+/*
+  Cada capa se sitúa en su Z y se pre-escala por (P − z) / P alrededor del
+  mismo `perspective-origin`, con lo que la proyección la devuelve exactamente
+  a su tamaño de diseño: en reposo la composición es idéntica a la plana.
+  Cuatro nodos anidados, un único dueño para cada `transform`:
+    .depth-slot     Z + compensación (CSS estático)
+    .depth-scroll   línea de tiempo de ScrollTrigger
+    .depth-pointer  parallax de cursor (gsap.quickTo)
+    .depth-ambient  bucle ambiental (CSS keyframes o GSAP)
+*/
+.depth-slot {
+  position: absolute;
+  inset: 0;
+  transform-origin: var(--hero-origin-x) var(--hero-origin-y);
+  transform:
+    translate3d(0, 0, calc(var(--z) * 1px))
+    scale(calc((var(--hero-persp) - var(--z)) / var(--hero-persp)));
+  transform-style: preserve-3d;
+}
+
+.depth-scroll,
+.depth-pointer,
+.depth-ambient {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+}
+
+/* Sólo el nodo que se repinta en cada frame se promociona a capa propia. */
+.depth-pointer { will-change: transform; }
+.hero-stage-anchor { --z: 0; }
+
+.hero-plate { position: absolute; inset: 0; }
+.hero-plate img { object-fit: cover; }
+
+.deep-sky {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 120% 80% at 12% 6%, rgba(24, 86, 168, .34), transparent 58%),
+    radial-gradient(ellipse 90% 70% at 74% 28%, rgba(10, 58, 126, .28), transparent 62%),
+    linear-gradient(180deg, #04122a 0%, #041228 42%, #020913 100%);
+}
+
+.hero-stars { opacity: .62; }
+.hero-stars img { animation: star-breathe 7s ease-in-out infinite alternate; }
+.hero-mountains-far img,
+.hero-mountains-mid img,
+.hero-mountains-front img { object-position: center 55%; }
+.hero-mountains-far { transform: scale(1.035); }
+.hero-mountains-mid { transform: scale(1.045); }
+.hero-mountains-front { transform: scale(1.06); }
+
+.hero-network { opacity: .34; transform: scale(1.03) translate(22%, -3%); }
+/* Franja inferior, no plano completo: a opacidad .1 no aporta nada ocupar
+   toda la pantalla y sí cuesta una textura entera. */
+.hero-ribbons { inset: auto -8% -2%; height: 42%; opacity: .1; }
+.hero-ribbons img { object-position: center bottom; transform: scale(1.12); }
+
+.hero-vignette {
+  position: absolute;
+  z-index: 14;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, rgba(1, 8, 20, .62) 0%, rgba(1, 9, 22, .2) 45%, rgba(1, 7, 17, .34) 100%),
+    /* La última franja cierra en el color de fondo exacto: así el borde
+       inferior del hero enlaza sin costura con las métricas. */
+    linear-gradient(180deg, rgba(1, 7, 17, .36), transparent 42%, rgba(2, 9, 19, .66) 90%, #020913 100%);
+}
+
+/*
+  Aurora construida sólo con degradados radiales de parada suave. La versión
+  con `filter: blur(34px)` se veía igual, pero al animar su escala el
+  desenfoque se recalculaba en cada frame: costaba ~9 fps en gráfica integrada.
+*/
+.hero-aurora {
+  position: absolute;
+  inset: -20% -12% 16% 34%;
+  border-radius: 50%;
+  background:
+    radial-gradient(ellipse 62% 50% at 36% 30%, rgba(0, 217, 255, .12), transparent 72%),
+    radial-gradient(ellipse 56% 44% at 70% 60%, rgba(25, 82, 255, .12), transparent 74%),
+    radial-gradient(ellipse 72% 62% at 50% 66%, rgba(0, 224, 255, .17), transparent 70%);
+  opacity: .5;
+  animation: aurora-breathe 8s ease-in-out infinite alternate;
+}
+
+.hero-light-sweep {
+  position: absolute;
+  inset: -25% auto -25% -34%;
+  width: 24%;
+  /* El degradado ya nace difuso: no hace falta `filter: blur()`, que aquí
+     obligaba a rasterizar de nuevo mientras el barrido se desplaza. */
+  background: linear-gradient(90deg, transparent, rgba(101, 232, 255, .1) 28%, rgba(190, 245, 255, .2) 50%, rgba(101, 232, 255, .1) 72%, transparent);
+  /* La coreografía lo enciende y lo apaga una sola vez, en el pico. */
+  opacity: 0;
+  transform: rotate(15deg);
+}
+
+.hero-canvas { position: absolute; z-index: 1; inset: 0; opacity: 1; pointer-events: none; }
+.hero-canvas canvas { display: block; width: 100% !important; height: 100% !important; }
+
+/* Con movimiento reducido no se retira el mundo: se congela. La escena WebGL
+   deja de recorrer la curva de cámara y se queda en el fotograma aprobado, que
+   es una composición legible por sí misma. */
+.hero-debug-jumps { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 6px; pointer-events: auto; }
+.hero-debug-jumps button {
+  padding: 2px 5px;
+  border: 1px solid rgba(82, 224, 255, .3);
+  border-radius: 4px;
+  background: rgba(10, 34, 58, .8);
+  color: #bfeaff;
+  font: inherit;
+  cursor: pointer;
+}
+.hero-debug-jumps button:hover { border-color: rgba(120, 240, 255, .7); color: #eafcff; }
+
+/* Motas del plano lejano: puntos CSS a Z −360, donde el parallax apenas los
+   desplaza. Cubren el papel del antiguo lienzo lejano sin una textura más. */
+.far-particles { position: absolute; inset: 0; overflow: hidden; }
+.far-particles i {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  border-radius: 50%;
+  background: #bfe9ff;
+  box-shadow: 0 0 5px rgba(120, 220, 255, .8);
+  opacity: .35;
+  animation: far-particle 8s ease-in-out infinite alternate;
+}
+.far-particles i:nth-child(3n) { width: 1px; height: 1px; opacity: .22; }
+
+.near-particles { position: absolute; inset: 0; overflow: hidden; }
+.near-particles i {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #7df2ff;
+  box-shadow: 0 0 10px #00cfff;
+  animation: near-particle 5.2s ease-in-out infinite alternate;
+}
+.near-particles i:nth-child(3n) { width: 6px; height: 6px; opacity: .34; filter: blur(1px); }
+.near-particles i:nth-child(4n) { width: 2px; height: 2px; animation-duration: 7.4s; }
+
+/* ------------------------------------------------------------------ niebla */
+
+/*
+  Cinco bancos de niebla a cinco profundidades. Los dos traseros pasan entre
+  las cordilleras, el medio recorre la base de la plataforma y los dos
+  frontales cruzan por delante del cerebro. La opacidad es deliberadamente
+  baja: la niebla debe leerse como aire, no tapar el holograma.
+*/
+.fog-bank { position: absolute; width: var(--fog-w); }
+.fog-bank img { object-fit: cover; }
+
+.fog-back-a  { --fog-w: 112%; left: -8%;  bottom: 19%; aspect-ratio: 2100 / 749; opacity: .26; }
+.fog-back-b  { --fog-w: 122%; left: -16%; bottom: 27%; aspect-ratio: 2100 / 749; opacity: .16; transform: scaleX(-1); }
+.fog-mid     { --fog-w: 118%; left: -9%;  bottom: 1%;  aspect-ratio: 2172 / 724; opacity: .24; }
+.fog-front-a { --fog-w: 122%; left: -12%; bottom: -14%; aspect-ratio: 2172 / 724; opacity: .34; transform: scaleX(-1); }
+.fog-front-b { --fog-w: 130%; left: -18%; bottom: -22%; aspect-ratio: 2100 / 749; opacity: .2; }
+
+/* --------------------------------------------------------------- holograma */
+
+/*
+  Geometría compartida por todas las piezas del holograma: réplica exacta de
+  dónde caía `.hero-scene` dentro de la retícula original, resuelta con las
+  mismas medidas para que ninguna pieza se desalinee al cambiar de resolución.
+*/
+.hero-stage {
+  position: absolute;
+  left: calc(50% + var(--stage-offset) * var(--hero-shell));
+  top: var(--stage-y);
+  width: var(--stage-width);
+  aspect-ratio: 1374 / 1145;
+  transform: translate(-50%, -50%);
+  transform-style: preserve-3d;
+}
+
+.stage-tilt,
+.stage-sway {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+}
+.stage-tilt { will-change: transform; }
+
+.piece { position: absolute; inset: 0; }
+.piece img { object-fit: contain; object-position: center; }
+.piece-brain { filter: saturate(1.04) contrast(1.02) drop-shadow(0 12px 26px rgba(0, 113, 255, .34)); }
+.piece-rings { filter: drop-shadow(0 0 16px rgba(0, 150, 255, .28)); }
+.piece-platform { filter: drop-shadow(0 18px 30px rgba(0, 40, 90, .5)); }
+.piece-platform-glow { filter: saturate(1.06); }
+.piece-beam { filter: saturate(1.1); }
+
+.hologram-scan {
+  position: absolute;
+  z-index: 2;
+  top: 8%;
+  left: 19%;
+  width: 62%;
+  height: 52%;
+  overflow: hidden;
+  border-radius: 50%;
+  opacity: 0;
+  background: linear-gradient(180deg, transparent 42%, rgba(160, 247, 255, .5) 49%, rgba(71, 220, 255, .16) 52%, transparent 59%);
+  animation: hologram-scan 10.4s ease-in-out infinite;
+}
+
+.holographic-hud {
+  position: absolute;
+  z-index: 3;
+  top: 4%;
+  left: 13.5%;
+  width: 73%;
+  aspect-ratio: 1;
+  opacity: .18;
+  transform-origin: center;
+  pointer-events: none;
+}
+.holographic-hud svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; animation: hud-drift 12s ease-in-out infinite alternate; }
+.hud-reticle { fill: none; stroke: rgba(91, 228, 255, .13); stroke-width: .45; stroke-dasharray: 2 8; }
+.hud-arc { fill: none; stroke: rgba(104, 235, 255, .58); stroke-width: 1.15; stroke-linecap: round; stroke-dasharray: 14 9 3 11; filter: drop-shadow(0 0 2px rgba(0, 218, 255, .42)); }
+.hud-arc-b { stroke-width: .7; opacity: .58; }
+.hud-arc-c { stroke-width: .9; opacity: .7; }
+.hud-bracket { fill: none; stroke: rgba(108, 231, 255, .35); stroke-width: .7; }
+.hud-tick { stroke: rgba(127, 239, 255, .36); stroke-width: .65; }
+.scanner-ring {
+  position: absolute;
+  left: 9%;
+  top: 44%;
+  width: 82%;
+  height: 17%;
+  border: 1px solid rgba(68, 223, 255, .22);
+  border-radius: 50%;
+  transform: rotate(-8deg);
+  animation: scanner-breathe 5.6s ease-in-out infinite alternate;
+}
+.scanner-ring-b { left: 16%; top: 24%; width: 68%; height: 52%; border-color: rgba(70, 177, 255, .15); transform: rotate(53deg); animation-duration: 7.8s; animation-direction: alternate-reverse; }
+.scanner-ring-c { left: 29%; top: 39%; width: 42%; height: 25%; border-style: dashed; border-color: rgba(156, 246, 255, .24); transform: rotate(18deg); animation-duration: 4.7s; }
+.scanner-ring b { position: absolute; left: 6%; top: 42%; width: 18%; height: 2px; border-radius: 2px; background: linear-gradient(90deg, transparent, rgba(132, 245, 255, .9), transparent); box-shadow: 0 0 7px rgba(0, 218, 255, .4); animation: data-arc 7s linear infinite; }
+.scanner-ring-b b { left: 62%; animation-duration: 9.3s; animation-direction: reverse; }
+.scanner-ring-c b { left: 35%; animation-duration: 5.8s; }
+.hud-crosshair { position: absolute; width: 13px; height: 13px; opacity: .42; background: linear-gradient(90deg, transparent 46%, #89efff 47% 53%, transparent 54%), linear-gradient(0deg, transparent 46%, #89efff 47% 53%, transparent 54%); }
+.hud-crosshair-a { left: 3%; top: 29%; }
+.hud-crosshair-b { right: 4%; bottom: 24%; transform: scale(.72); }
+
+/* Actividad neural sobre el hemisferio digital: nodos que se encienden
+   desacompasados, como si algo estuviera procesando. */
+
+/* Órbitas sintéticas: son las que aportan la rotación continua de 360°, ya que
+   los anillos extraídos del arte original no pueden girar sin delatarse. */
+.scene-orbit {
+  position: absolute;
+  top: 8.5%;
+  left: 17.5%;
+  width: 65%;
+  aspect-ratio: 1;
+  border: 1px solid rgba(73, 221, 255, .2);
+  border-radius: 50%;
+  box-shadow: 0 0 16px rgba(0, 177, 255, .1);
+  animation: orbit-rotate 40s linear infinite;
+}
+.scene-orbit-b {
+  top: 11%;
+  left: 20%;
+  width: 60%;
+  animation-duration: 27s;
+  animation-direction: reverse;
+}
+.orbital-node {
+  position: absolute;
+  top: 42%;
+  left: -7px;
+  width: 13px;
+  height: 13px;
+  border: 2px solid #8cf5ff;
+  border-radius: 50%;
+  background: #0c83ff;
+  box-shadow: 0 0 5px #fff, 0 0 18px #00c8ff;
+}
+
+/* Aros HUD girando sobre la superficie de la plataforma. */
+.platform-hud-ring {
+  position: absolute;
+  top: 84%;
+  left: 32%;
+  width: 36%;
+  aspect-ratio: 4.6;
+  border: 1px dashed rgba(96, 232, 255, .32);
+  border-radius: 50%;
+  animation: orbit-rotate 18s linear infinite;
+}
+.platform-hud-ring-b {
+  top: 87.5%;
+  left: 25%;
+  width: 50%;
+  aspect-ratio: 6.4;
+  border-style: solid;
+  border-color: rgba(60, 190, 255, .18);
+  animation-duration: 26s;
+  animation-direction: reverse;
+}
+
+/* El haz como fuente de energía: núcleo claro, halo azul y motas que suben. */
+.beam-core {
+  position: absolute;
+  top: 62%;
+  left: 47.6%;
+  width: 4.8%;
+  height: 22%;
+  border-radius: 50% 50% 40% 40%;
+  background: linear-gradient(180deg, rgba(190, 250, 255, .1), rgba(120, 240, 255, .68) 55%, rgba(255, 255, 255, .9));
+  filter: blur(3px);
+  animation: beam-pulse 1.9s ease-in-out infinite;
+}
+.beam-glow {
+  position: absolute;
+  top: 57%;
+  left: 42%;
+  width: 16%;
+  height: 31%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at 50% 62%, rgba(54, 221, 255, .24), rgba(22, 122, 255, .08) 50%, transparent 73%);
+  animation: beam-glow-breathe 3.7s ease-in-out infinite alternate;
+}
+.beam-motes { position: absolute; inset: 60% 40% 16% 40%; overflow: hidden; }
+.beam-motes i {
+  position: absolute;
+  bottom: 0;
+  left: calc(12% + ((var(--i) * 29) % 76) * 1%);
+  width: 2px;
+  height: 2px;
+  border-radius: 50%;
+  background: #ccfcff;
+  box-shadow: 0 0 8px #35e6ff;
+  animation: beam-mote calc(1.6s + ((var(--i) * 11) % 13) * .12s) linear infinite;
+  animation-delay: calc(var(--i) * -.21s);
+}
+.beam-dust { position: absolute; inset: 59% 38% 13%; overflow: hidden; }
+.beam-dust i { position: absolute; left: calc(((var(--i) * 37) % 94) * 1%); bottom: calc(((var(--i) * 19) % 42) * 1%); width: 1px; height: 1px; border-radius: 50%; background: rgba(214, 251, 255, .82); box-shadow: 0 0 4px rgba(86, 227, 255, .75); animation: beam-dust-rise calc(2.8s + ((var(--i) * 5) % 9) * .24s) ease-in infinite; animation-delay: calc(var(--i) * -.34s); }
+
+.volumetric-rays { position: absolute; z-index: -1; inset: 4% 10% 22%; opacity: .32; pointer-events: none; }
+.volumetric-rays i { position: absolute; left: 42%; bottom: 5%; width: 12%; height: 96%; transform-origin: 50% 100%; background: linear-gradient(0deg, rgba(47, 210, 255, .16), rgba(37, 117, 255, .035) 58%, transparent 88%); clip-path: polygon(45% 100%, 55% 100%, 100% 0, 0 0); animation: ray-breathe 6.2s ease-in-out infinite alternate; }
+.volumetric-rays i:nth-child(2) { transform: rotate(-19deg); opacity: .55; animation-delay: -2.1s; animation-duration: 7.7s; }
+.volumetric-rays i:nth-child(3) { transform: rotate(21deg); opacity: .42; animation-delay: -4.4s; animation-duration: 8.9s; }
+
+/* --------------------------------------------------- interfaz sobre el mundo */
+
+.hero-veil {
+  position: absolute;
+  z-index: 15;
+  inset: 0;
+  background: #020913;
+  opacity: 0;
+  pointer-events: none;
+  will-change: opacity;
+}
+
+.hero-layout {
+  position: absolute;
+  z-index: 20;
+  inset: 0;
+  display: grid;
+  grid-template-columns: minmax(420px, 41%) minmax(0, 59%);
+  align-items: center;
+  width: var(--hero-shell);
+  margin-inline: auto;
+  /* El relleno inferior sube la composición para dejar respirar la niebla
+     baja y la plataforma sin tocar el navbar por arriba. */
+  padding: 80px 0 118px;
+  pointer-events: none;
+}
+.hero-copy { position: relative; max-width: 560px; pointer-events: auto; }
+
+.hero-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: .7rem;
+  min-height: 38px;
+  padding: 0 18px;
+  border: 1px solid rgba(49, 191, 255, .3);
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(6, 45, 82, .5), rgba(3, 18, 36, .32));
+  box-shadow: inset 0 0 18px rgba(0, 180, 255, .05);
+  color: #34d9ff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+}
+.hero-kicker i { width: 5px; height: 5px; border-radius: 50%; background: #21e6ff; box-shadow: 0 0 12px #21e6ff; }
+.hero-copy h1 {
+  margin-top: 25px;
+  color: #f7faff;
+  font-family: var(--font-space-grotesk), sans-serif;
+  font-size: clamp(3.05rem, 3.8vw, 4.05rem);
+  font-weight: 720;
+  line-height: .98;
+  letter-spacing: -.055em;
+}
+.hero-title-line { display: block; }
+.hero-title-line + .hero-title-line { margin-top: .16em; }
+.hero-title-line em { color: #34d9ff; font-style: normal; text-shadow: 0 0 28px rgba(0, 217, 255, .28); }
+.hero-description {
+  max-width: 530px;
+  margin-top: 24px;
+  color: #c4d4e7;
+  font-size: clamp(.95rem, 1.18vw, 1.05rem);
+  line-height: 1.68;
+}
+.hero-actions { display: flex; gap: 16px; margin-top: 28px; }
+.hero-cta {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  min-height: 58px;
+  padding: 0 26px;
+  overflow: hidden;
+  border-radius: 12px;
+  color: #f7faff;
+  font-weight: 650;
+  transition: transform .24s ease, border-color .24s ease, box-shadow .24s ease;
+}
+.hero-cta svg { width: 20px; height: 20px; transition: transform .24s ease; }
+.hero-cta:hover { transform: translateY(-2px) scale(1.015); }
+.hero-cta:focus-visible,
+.institutional-card a:focus-visible {
+  outline: 3px solid rgba(109, 234, 255, .9);
+  outline-offset: 3px;
+}
+.hero-cta:hover > svg { transform: translateX(4px); }
+.hero-cta-primary { min-width: 242px; background: linear-gradient(105deg, #075eea, #00cbe1); box-shadow: 0 14px 44px -18px rgba(0, 200, 255, .8); }
+.hero-cta-primary::before { content: ''; position: absolute; inset: -100% auto -100% -45%; width: 34%; transform: rotate(18deg); background: linear-gradient(90deg, transparent, rgba(255,255,255,.45), transparent); animation: button-shine 4s ease-in-out infinite; }
+.hero-cta-secondary { min-width: 220px; border: 1px solid rgba(120, 190, 255, .38); background: rgba(3, 20, 42, .52); backdrop-filter: blur(12px); }
+.hero-cta-secondary:hover { border-color: rgba(54, 222, 255, .75); box-shadow: 0 0 28px rgba(0, 180, 255, .12); }
+.hero-cta-secondary span { display: grid; width: 32px; height: 32px; place-items: center; border-radius: 50%; background: rgba(31, 103, 190, .42); }
+.hero-cta-secondary span svg { width: 13px; height: 13px; fill: currentColor; }
+
+.side-indicator { position: absolute; z-index: 45; right: 28px; top: 37%; display: flex; flex-direction: column; align-items: center; color: #91a9c3; }
+.side-indicator > div { display: grid; gap: 18px; margin-bottom: 18px; }
+.side-indicator i { display: block; width: 8px; height: 8px; border: 1px solid #82a7cc; border-radius: 50%; }
+.side-indicator i.active { border: 2px solid #eafcff; background: #18dfff; box-shadow: 0 0 12px #00d9ff; transform: scale(1.28); }
+.side-indicator strong { color: #56dfff; font-family: var(--font-space-grotesk); font-size: 24px; font-variant-numeric: tabular-nums; }
+.side-indicator span { width: 92px; min-height: 26px; margin-top: 4px; font-size: 9px; line-height: 1.35; text-align: center; }
+
+.hero-scroll-cue { position: absolute; z-index: 46; bottom: 24px; left: 50%; display: grid; justify-items: center; gap: 7px; transform: translateX(-50%); color: rgba(190, 230, 247, .72); font-size: 9px; font-weight: 650; letter-spacing: .2em; text-transform: uppercase; pointer-events: none; }
+.hero-scroll-cue i { position: relative; width: 1px; height: 28px; overflow: hidden; background: rgba(89, 216, 255, .18); }
+.hero-scroll-cue i::after { content: ''; position: absolute; inset: -55% 0 auto; height: 55%; background: #73efff; box-shadow: 0 0 8px #21dfff; animation: scroll-cue 1.8s ease-in-out infinite; }
+
+.brain-hotspot-label { width: max-content; max-width: 210px; opacity: 0; filter: drop-shadow(0 6px 18px rgba(0, 5, 18, .9)); transition: opacity .12s linear; }
+.brain-hotspot-label.is-right { transform-origin: right center; text-align: right; }
+.brain-hotspot-label.is-left { transform-origin: left center; text-align: left; }
+.brain-hotspot-label strong { display: block; color: #f1fcff; font-family: var(--font-space-grotesk), sans-serif; font-size: 16px; font-weight: 680; line-height: 1.2; }
+.brain-hotspot-label small { display: block; margin-top: 4px; color: #a7d8eb; font-size: 12px; line-height: 1.35; }
+
+.nav-shell { transform-style: preserve-3d; perspective: 900px; }
+.nav-brand, .nav-depth-link { transform: translateZ(0); transition: transform .24s ease, color .24s ease, background-color .24s ease, box-shadow .24s ease; }
+.nav-brand:hover { transform: translate3d(0, -1px, 12px); }
+.nav-depth-link:hover { transform: translate3d(0, -1px, 10px); background: rgba(31, 143, 224, .08); box-shadow: inset 0 0 0 1px rgba(79, 205, 255, .08), 0 8px 18px rgba(0, 10, 30, .18); }
+.nav-depth-link:focus-visible, .nav-brand:focus-visible { outline: 3px solid rgba(109, 234, 255, .9); outline-offset: 3px; }
+
+.hero-debug { position: absolute; z-index: 90; right: 18px; bottom: 18px; display: grid; min-width: 224px; gap: 3px; padding: 10px 12px; border: 1px solid rgba(82, 224, 255, .35); border-radius: 9px; background: rgba(1, 10, 22, .86); color: #a9d7e9; font: 11px/1.35 ui-monospace, SFMono-Regular, Consolas, monospace; pointer-events: none; }
+.hero-debug b { color: #e9fcff; font-weight: 700; }
+
+/* ---------------------------------- métricas e institucional (dentro de 01) */
+
+/*
+  Ya no son una sección posterior: pertenecen al capítulo Inicio y entran en su
+  coreografía, alrededor del 78 % del recorrido. Fuera de esa ventana el bloque
+  queda inerte, de modo que sus enlaces tampoco reciben el foco del tabulador.
+*/
+.hero-data {
+  position: absolute;
+  z-index: 22;
+  top: 50%;
+  left: 50%;
+  width: var(--hero-shell);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+.hero-data.is-live { pointer-events: auto; }
+
+/*
+  En escritorio con movimiento el bloque parte oculto para que no aparezca un
+  fotograma sobre el hero antes de que la coreografía lo tome. Se hace en CSS
+  y no en línea porque en móvil y con movimiento reducido debe verse siempre.
+*/
+@media (min-width: 901px) and (prefers-reduced-motion: no-preference) {
+  .hero-metrics,
+  .hero-institutional { opacity: 0; }
+}
+
+.hero-metrics { position: relative; z-index: 1; width: 100%; margin: 0 auto 16px; }
+.metrics-panel { position: relative; display: grid; grid-template-columns: repeat(4, 1fr); min-height: 116px; padding: 14px 18px; overflow: hidden; border: 1px solid rgba(60, 190, 255, .24); border-radius: 18px; background: linear-gradient(180deg, rgba(8, 35, 63, .82), rgba(3, 20, 39, .74)); box-shadow: 0 20px 60px rgba(0,0,0,.25), inset 0 0 30px rgba(0, 134, 255, .04); backdrop-filter: blur(18px); }
+.metric { display: flex; align-items: center; gap: 16px; padding: 0 24px; border-right: 1px solid rgba(83, 166, 226, .13); }
+.metric:last-child { border-right: 0; }
+.metric-icon { display: grid; flex: 0 0 52px; width: 52px; height: 52px; place-items: center; border: 1px solid rgba(25, 162, 243, .28); border-radius: 50%; background: rgba(3, 27, 56, .75); color: #00d9ff; box-shadow: inset 0 0 18px rgba(0, 163, 255, .08); }
+.metric-icon svg { width: 27px; height: 27px; stroke-width: 1.55; }
+.metric-copy { display: flex; min-width: 0; flex-direction: column; line-height: 1.25; }
+.metric-copy strong { color: #eefbff; font-size: 15px; font-weight: 650; white-space: nowrap; }
+.metric-copy small { margin-top: 7px; color: #8fc9dc; font-size: 12px; line-height: 1.35; }
+.pillars-sweep { position: absolute; z-index: 2; left: 2%; right: 2%; bottom: 0; height: 1px; transform: scaleX(0); transform-origin: left; background: linear-gradient(90deg, transparent, #36dfff 15%, #36dfff 85%, transparent); box-shadow: 0 0 10px rgba(0, 218, 255, .5); pointer-events: none; }
+
+.hero-institutional { position: relative; z-index: 1; margin: 0 auto; }
+.hero-institutional .institutional-wrap { padding: 0; background: transparent; }
+.institutional-wrap { position: relative; z-index: 2; margin-top: -1px; padding: 18px 0 30px; background: transparent; }
+.institutional-grid { position: absolute; inset: 18px 0 30px; border-radius: 18px; opacity: .18; background-image: linear-gradient(rgba(56, 193, 255, .09) 1px, transparent 1px), linear-gradient(90deg, rgba(56, 193, 255, .09) 1px, transparent 1px); background-size: 34px 34px; mask-image: radial-gradient(ellipse at center, #000 0, transparent 78%); }
+.institutional-strip { position: relative; display: grid; grid-template-columns: 1fr 120px 1fr; width: min(100%, 1180px); min-height: 142px; margin: auto; overflow: visible; border-block: 1px solid rgba(78, 208, 255, .2); background: linear-gradient(90deg, transparent, rgba(4, 25, 48, .52) 14%, rgba(4, 25, 48, .52) 86%, transparent); box-shadow: 0 24px 80px rgba(0,0,0,.22); }
+.institutional-card { display: flex; align-items: center; gap: 22px; min-width: 0; padding: 18px 30px; }
+.hero-institutional .institutional-card { background: linear-gradient(90deg, rgba(2, 15, 30, .48), rgba(3, 24, 45, .24)); }
+.hero-institutional .developer-content { position: relative; z-index: 2; }
+.institutional-card h2 { margin-top: 8px; color: #f7faff; font-family: var(--font-space-grotesk); font-size: 18px; font-weight: 650; line-height: 1.28; text-transform: uppercase; }
+.institutional-card p { max-width: 290px; margin-top: 8px; color: #b9c9dc; font-size: 13px; line-height: 1.55; }
+.eyebrow-small { color: #ecf5ff; font-size: 12px; font-weight: 600; }
+.institutional-role { display: block; margin-top: 7px; color: #47dfff; font-size: 12px; font-weight: 600; }
+.brand-image { display: grid; flex: 0 0 auto; place-items: center; }
+.crest-image { width: 68px; height: 88px; }
+.crest-image img { width: 100%; height: 100%; filter: drop-shadow(0 5px 10px rgba(215, 163, 22, .2)); }
+.developer-card { justify-content: center; text-align: center; }
+.developer-content { display: flex; height: 100%; flex-direction: column; align-items: center; justify-content: center; }
+.developer-content p { margin-top: 2px; }
+.olbrox-image { width: 210px; height: 56px; margin-top: 2px; }
+.olbrox-image img { width: 100%; height: 100%; filter: drop-shadow(0 0 11px rgba(40, 167, 255, .3)); }
+.institutional-connection { display: flex; align-items: center; align-self: stretch; justify-content: center; gap: 0; }
+.institutional-connection span { width: 88px; height: 1px; transform: scaleX(0); transform-origin: left; background: linear-gradient(90deg, rgba(41, 166, 224, .18), #45e5ff, rgba(41, 166, 224, .18)); box-shadow: 0 0 8px rgba(0, 218, 255, .45); }
+.institutional-connection i { width: 5px; height: 5px; border: 1px solid rgba(107, 231, 255, .8); border-radius: 50%; box-shadow: 0 0 7px rgba(0, 218, 255, .48); }
+
+/* ------------------------------------------------- energía y transición */
+
+/* Resplandor propio del cerebro, por detrás de la pieza: es lo que la
+   coreografía sube en AWAKEN y en el pico de energía. */
+.brain-glow {
+  position: absolute;
+  inset: 6% 14% 26%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(90, 226, 255, .5), rgba(12, 120, 255, .22) 42%, transparent 70%);
+  opacity: .35;
+  filter: blur(18px);
+}
+.brain-glow::after { content: ''; position: absolute; inset: 8%; border-radius: inherit; background: radial-gradient(circle, rgba(175, 249, 255, .2), rgba(19, 136, 255, .08) 48%, transparent 72%); animation: brain-energy-breathe 3.6s ease-in-out infinite alternate; }
+
+/* Señales neuronales sobre el hemisferio digital. `--neural` gradúa cuántas se
+   ven y con qué fuerza; la coreografía la sube a partir de AWAKEN. */
+.neural-signals { position: absolute; inset: 12% 18% 40% 48%; pointer-events: none; }
+.neural-signals svg { width: 100%; height: 100%; overflow: visible; }
+.neural-path {
+  fill: none;
+  stroke: #8ef8ff;
+  stroke-width: .8;
+  stroke-linecap: round;
+  stroke-dasharray: 18 120;
+  filter: drop-shadow(0 0 3px rgba(0, 226, 255, .9));
+  opacity: 0;
+  animation: neural-travel calc(5.4s + var(--i) * .37s) ease-in-out infinite;
+  animation-delay: calc(var(--i) * -1.13s);
+}
+.neural-pulses { position: absolute; inset: 0; }
+.neural-pulses i {
+  position: absolute;
+  left: calc(((var(--i) * 37) % 89) * 1%);
+  top: calc(((var(--i) * 53) % 83) * 1%);
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #8ef8ff;
+  box-shadow: 0 0 10px #00eaff;
+  animation: neuron-pulse calc(1.4s + ((var(--i) * 7) % 15) * .12s) ease-in-out infinite;
+  animation-delay: calc(var(--i) * -.41s);
+}
+
+/* Motas grandes y desenfocadas pegadas a cámara. */
+.cine-particles { position: absolute; inset: 0; overflow: hidden; }
+.cine-particles i {
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(160, 240, 255, .55), transparent 68%);
+  filter: blur(3px);
+  opacity: .3;
+  animation: cine-drift 16s ease-in-out infinite alternate;
+}
+.cine-particles i:nth-child(3n) { width: 15px; height: 15px; filter: blur(5px); opacity: .22; }
+.cine-particles i:nth-child(4n) { width: 6px; height: 6px; filter: blur(2px); opacity: .38; }
+
+/* Bokeh: pocos, grandes y nunca todos a la vez. */
+.hero-bokeh { position: absolute; inset: 0; overflow: hidden; }
+.hero-bokeh i {
+  position: absolute;
+  width: clamp(70px, 7vw, 130px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(70, 200, 255, .2), rgba(30, 120, 255, .07) 55%, transparent 72%);
+  filter: blur(6px);
+  opacity: 0;
+  animation: bokeh-pass 22s ease-in-out infinite;
+}
+
+/* Puerta al capítulo 02: núcleo cian sobre el fondo base, sin destello blanco. */
+.hero-portal {
+  position: absolute;
+  z-index: 24;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  opacity: 0;
+  pointer-events: none;
+}
+.portal-glow {
+  position: absolute;
+  width: min(70vw, 900px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(0, 190, 255, .3), rgba(4, 40, 90, .16) 44%, transparent 70%);
+  filter: blur(24px);
+}
+.portal-core {
+  position: relative;
+  width: clamp(80px, 9vw, 160px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(226, 253, 255, .92), rgba(38, 200, 255, .55) 34%, transparent 68%);
+  box-shadow: 0 0 60px rgba(0, 208, 255, .55);
+  animation: portal-breathe 3.2s ease-in-out infinite alternate;
+}
+
+@keyframes neural-travel { 0%, 58%, 100% { opacity: 0; stroke-dashoffset: 0; } 64% { opacity: .18; } 74% { opacity: .9; } 88% { opacity: 0; stroke-dashoffset: -138; } }
+@keyframes cine-drift {
+  from { transform: translate3d(-14px, 10px, 0) scale(.86); opacity: .14; }
+  to { transform: translate3d(18px, -16px, 0) scale(1.18); opacity: .42; }
+}
+@keyframes bokeh-pass {
+  0%, 100% { opacity: 0; transform: translate3d(0, 0, 0) scale(.82); }
+  18% { opacity: .5; }
+  60% { opacity: .34; }
+  82% { opacity: 0; transform: translate3d(58px, -46px, 0) scale(1.2); }
+}
+@keyframes portal-breathe { from { transform: scale(.94); } to { transform: scale(1.07); } }
+@keyframes hud-drift { from { transform: rotate(-1.2deg) scale(.995); } to { transform: rotate(1.2deg) scale(1.008); } }
+@keyframes scanner-breathe { from { opacity: .35; scale: .985; } to { opacity: .82; scale: 1.018; } }
+@keyframes data-arc { 0% { transform: translateX(-18%) scaleX(.55); opacity: 0; } 12% { opacity: .85; } 78% { opacity: .5; } 100% { transform: translateX(380%) scaleX(1.05); opacity: 0; } }
+@keyframes brain-energy-breathe { from { opacity: .55; transform: scale(.97); } to { opacity: 1; transform: scale(1.055); } }
+@keyframes beam-glow-breathe { from { opacity: .46; transform: scaleX(.9); } to { opacity: .86; transform: scaleX(1.08); } }
+@keyframes beam-dust-rise { 0% { opacity: 0; transform: translate3d(0, 10px, 0); } 22% { opacity: .75; } 100% { opacity: 0; transform: translate3d(5px, -88px, 0); } }
+@keyframes ray-breathe { from { opacity: .28; scale: .94; } to { opacity: .72; scale: 1.04; } }
+
+/* --------------------------------------------------- movimiento ambiental */
+
+/*
+  Todo lo que se mueve solo. Cada capa con su propia duración y su propio
+  sentido: si dos coinciden, el ojo las lee como una sola.
+*/
+/* Sólo desplazamientos: escalar o girar un nodo que ocupa el viewport entero
+   arrastraría su contenido decenas de píxeles. */
+.ambient-network { animation: network-breathe 9.5s ease-in-out infinite alternate; }
+/*
+  Cada banco combina deriva horizontal, deriva vertical y respiración de
+  escala, con periodos que no son múltiplos entre sí. Es esa falta de sincronía
+  la que hace que la niebla se lea como volumen y no como cinco imágenes
+  desplazándose en paralelo.
+*/
+.ambient-fog-a { animation: fog-drift 32s ease-in-out infinite alternate; --fog-x: 50px; --fog-y: 5px; --fog-from: 1; --fog-to: 1.025; }
+.ambient-fog-b { animation: fog-drift 38s ease-in-out infinite alternate; --fog-x: -65px; --fog-y: -5px; --fog-from: 1.02; --fog-to: 1; }
+.ambient-fog-mid { animation: fog-drift 30s ease-in-out infinite alternate; --fog-x: 80px; --fog-y: 8px; --fog-from: 1; --fog-to: 1.035; }
+.ambient-fog-front-a { animation: fog-drift 28s ease-in-out infinite alternate; --fog-x: -120px; --fog-y: 6px; --fog-from: 1; --fog-to: 1.04; }
+.ambient-fog-front-b { animation: fog-drift 36s ease-in-out infinite alternate; --fog-x: 160px; --fog-y: -10px; --fog-from: 1.04; --fog-to: 1; }
+/* Balanceos del holograma: viven dentro de `.hero-stage`, así que escalan y
+   giran alrededor de la propia pieza. */
+.sway-platform { animation: platform-float 6s ease-in-out infinite alternate; }
+.sway-platform-glow { animation: platform-glow-breathe 3.6s ease-in-out infinite alternate; }
+.sway-beam { animation: beam-breathe 2s ease-in-out infinite alternate; }
+
+@keyframes star-breathe { to { opacity: .82; transform: scale(1.008); } }
+@keyframes network-breathe { to { opacity: .82; transform: translate3d(6px, -4px, 0); } }
+@keyframes fog-drift {
+  from { transform: translate3d(0, calc(var(--fog-y) * -0.8), 0) scale(var(--fog-from)); }
+  to { transform: translate3d(var(--fog-x), var(--fog-y), 0) scale(var(--fog-to)); }
+}
+@keyframes aurora-breathe { to { opacity: .78; transform: translate3d(-2%, -2%, 0) scale(1.06); } }
+@keyframes platform-float { to { transform: translate3d(0, 2px, 0); } }
+@keyframes platform-glow-breathe { from { opacity: .78; transform: scale(.985); } to { opacity: 1; transform: scale(1.015); } }
+@keyframes beam-breathe { from { opacity: .82; transform: scaleY(.98); } to { opacity: 1; transform: scaleY(1.03); } }
+@keyframes beam-pulse { 0%, 100% { opacity: .45; transform: scaleY(.92) scaleX(1.04); } 50% { opacity: .92; transform: scaleY(1.07) scaleX(.96); } }
+@keyframes beam-mote { 0% { opacity: 0; transform: translate3d(0, 0, 0) scale(.6); } 22% { opacity: 1; } 100% { opacity: 0; transform: translate3d(3px, -100%, 0) scale(1.1); } }
+@keyframes hologram-scan { 0%, 60%, 100% { opacity: 0; transform: translateY(-52%); } 66% { opacity: .08; } 72% { opacity: .34; } 84% { opacity: .12; transform: translateY(52%); } 88% { opacity: 0; transform: translateY(52%); } }
+@keyframes orbit-rotate { to { transform: rotate(360deg); } }
+@keyframes neuron-pulse { 0%, 100% { opacity: .25; transform: scale(.8); } 50% { opacity: 1; transform: scale(1.25); } }
+@keyframes button-shine { 0%, 62% { left: -45%; } 100% { left: 125%; } }
+@keyframes scroll-cue { 0% { transform: translateY(0); opacity: 0; } 22% { opacity: 1; } 78% { opacity: 1; } 100% { transform: translateY(50px); opacity: 0; } }
+@keyframes far-particle { from { opacity: .16; transform: translate3d(0, 0, 0); } to { opacity: .5; transform: translate3d(3px, -4px, 0); } }
+@keyframes near-particle { from { opacity: .2; transform: translate3d(-8px, 8px, 0) scale(.8); } to { opacity: .85; transform: translate3d(11px, -13px, 0) scale(1.25); } }
+
+/*
+  Calidad reducida. `HomeHero` mide la mediana de los primeros frames reales y
+  marca `data-quality="lite"` si el equipo no sostiene ~50 fps. Se retiran las
+  capas de mayor área y menor aportación (cintas al 10 % de opacidad, barrido
+  de luz y el segundo banco de niebla trasera); se conservan las cuatro capas
+  de niebla que sostienen la lectura de profundidad, incluidas las dos
+  frontales, que son las que cruzan por delante del cerebro.
+*/
+.hero-viewport[data-quality='lite'] [data-scroll='fogBackB'],
+.hero-viewport[data-quality='lite'] .hero-ribbons,
+.hero-viewport[data-quality='lite'] .hero-light-sweep,
+.hero-viewport[data-quality='lite'] .volumetric-rays i:nth-child(n+2),
+.hero-viewport[data-quality='lite'] .scanner-ring-b { display: none; }
+.hero-viewport[data-quality='lite'] .fog-front-b { --fog-w: 114%; left: -8%; }
+
+/* -------------------------------------------------------------- responsive */
+
+@media (max-width: 1180px) {
+  .hero-viewport {
+    --hero-shell: min(100% - 3rem, 1120px);
+    --stage-offset: 0.22;
+    --stage-width: min(52vw, 700px);
+  }
+  .hero-layout { grid-template-columns: minmax(380px, 44%) 56%; }
+  .metric { gap: 8px; padding: 0 8px; }
+  .metric-icon { flex-basis: 44px; width: 44px; height: 44px; }
+  .metric-icon svg { width: 22px; height: 22px; }
+  .institutional-card { padding: 22px; }
+}
+
+@media (max-height: 900px) and (min-width: 901px) {
+  .hero-viewport { --stage-width: min(43vw, 590px); --stage-y: calc(50% + 18px); }
+  .hero-copy h1 { margin-top: 16px; font-size: clamp(2.55rem, 3.35vw, 3.35rem); line-height: .96; }
+  .hero-title-line + .hero-title-line { margin-top: .12em; }
+  .hero-description { max-width: 490px; margin-top: 14px; font-size: .88rem; line-height: 1.5; }
+  .hero-actions { margin-top: 18px; }
+  .hero-cta { min-height: 50px; }
+  .metrics-panel { min-height: 94px; padding-block: 9px; }
+  .institutional-strip { height: 168px; }
+  .institutional-card { padding: 12px 24px; }
+  .institutional-card p { margin-top: 5px; line-height: 1.4; }
+  .institutional-card a { margin-top: 6px; }
+  .crest-image { width: 68px; height: 88px; }
+  .olbrox-image { width: 190px; height: 52px; }
+  .developer-content p { max-width: 250px; font-size: 12px; }
+  .security-shield { flex-basis: 64px; width: 64px; height: 76px; }
+}
+
+/*
+  Móvil y tablet estrecha: sin fijado ni parallax de cursor. El mundo 3D se
+  aplana subiendo mucho la perspectiva (la compensación de escala sigue siendo
+  exacta con cualquier valor) y el holograma vuelve a apilarse bajo el texto.
+*/
+@media (max-width: 900px) {
+  .hero-scroll-wrapper { height: auto; min-height: 190svh; }
+  .hero-viewport {
+    --hero-persp: 6000;
+    --hero-shell: min(100% - 3rem, 1120px);
+    --stage-width: min(88vw, 620px);
+    position: relative;
+    /* Una pantalla exacta. Con `auto` el contenedor crecía con el texto y el
+       canvas —que lo cubre— se renderizaba más alto que la pantalla: se veía
+       un recorte, con el cerebro enorme y cortado por abajo. */
+    height: 100svh;
+  }
+  .hero-layout {
+    position: absolute;
+    inset: 0;
+    grid-template-columns: 1fr;
+    align-items: start;
+    min-height: 0;
+    /* El relleno inferior deja libre la mitad baja, que es donde la cámara
+       coloca el escenario en vertical. */
+    padding: 96px 0 52svh;
+  }
+  .hero-copy { max-width: 650px; }
+  .hero-copy h1 { font-size: clamp(3rem, 8vw, 4.4rem); }
+  .hero-stage { left: 50%; top: auto; bottom: 4px; transform: translate(-50%, 0); }
+  .side-indicator { display: none; }
+  .fog-front-a { opacity: .2; }
+  .fog-front-b { opacity: .12; }
+  .hero-data {
+    width: min(100% - 3rem, 1120px);
+    padding-bottom: 28px;
+  }
+  .hero-portal { display: none; }
+  .hero-metrics { margin-top: 4px; }
+  .metrics-panel { grid-template-columns: repeat(2, 1fr); gap: 12px 0; }
+  .metric { min-height: 74px; }
+  .metric:nth-of-type(2) { border-right: 0; }
+  .institutional-strip { grid-template-columns: 1fr; height: auto; overflow: visible; }
+  .institutional-card { border-right: 0; border-bottom: 1px solid rgba(80,158,220,.2); }
+  .institutional-card:last-child { border-bottom: 0; }
+  .institutional-connection { min-height: 28px; }
+  .institutional-connection span { width: 26px; transform: rotate(90deg) scaleX(0); }
+  .developer-card { align-items: center; }
+}
+
+@media (max-width: 600px) {
+  .hero-viewport { --hero-shell: calc(100% - 2rem); --stage-width: 100vw; }
+  .hero-data { width: calc(100% - 2rem); }
+  /* La reserva inferior ya no depende de la proporción del antiguo PNG del
+     cerebro: la mitad baja de la pantalla es del escenario WebGL. */
+  .hero-layout { padding: 76px 0 46svh; }
+  .hero-kicker { max-width: 100%; padding: 0 13px; font-size: 9px; letter-spacing: .12em; }
+  .hero-copy h1 { margin-top: 20px; font-size: clamp(2.35rem, 10.8vw, 3rem); letter-spacing: -.045em; }
+  .hero-description { max-width: 100%; overflow-wrap: anywhere; font-size: .96rem; line-height: 1.58; }
+  .hero-description br { display: none; }
+  .hero-actions { flex-direction: column; }
+  .hero-cta { width: 100%; min-width: 0; min-height: 54px; }
+  .hero-network { transform: scale(1.35) translate(15%, -4%); }
+  .metrics-panel { grid-template-columns: repeat(2, 1fr); padding: 12px 8px; }
+  .metric { padding: 8px; border-right: 0; border-bottom: 1px solid rgba(83,166,226,.13); }
+  .metric:nth-last-child(-n+2) { border-bottom: 0; }
+  .metric-icon { flex-basis: 42px; width: 42px; height: 42px; }
+  .metric-copy > span, .metric-copy small { white-space: normal; }
+  .institutional-wrap { padding-top: 14px; }
+  .institutional-card, .developer-card { align-items: center; flex-direction: column; padding: 26px 22px; text-align: center; }
+  .institutional-card p { margin-inline: auto; }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    overflow-x: hidden;
+  }
+  section[id] {
+    scroll-margin-top: 5rem;
+  }
+  ::selection {
+    background: rgba(9, 198, 217, 0.28);
+    color: #f5f9ff;
+  }
+}
+
+@layer utilities {
+  .text-gradient {
+    background: linear-gradient(100deg, var(--blue) 0%, var(--cyan) 55%, var(--cyan-soft) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .bg-grid {
+    background-image:
+      linear-gradient(to right, rgba(34, 164, 255, 0.06) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(34, 164, 255, 0.06) 1px, transparent 1px);
+    background-size: 56px 56px;
+  }
+  .bg-grid-fade {
+    -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, #000 0%, transparent 78%);
+    mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, #000 0%, transparent 78%);
+  }
+  .glass {
+    background: var(--surface);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--border);
+  }
+  .glass-strong {
+    background: var(--surface-strong);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border: 1px solid var(--border);
+  }
+  .glow-blue {
+    box-shadow: 0 0 0 1px rgba(8, 121, 249, 0.25), 0 18px 60px -20px rgba(8, 121, 249, 0.55);
+  }
+  .glow-cyan {
+    box-shadow: 0 0 0 1px rgba(9, 198, 217, 0.3), 0 18px 60px -20px rgba(9, 198, 217, 0.55);
+  }
+}
+
+@keyframes float-slow {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-14px); }
+}
+@keyframes pulse-ring {
+  0% { transform: scale(0.9); opacity: 0.7; }
+  70% { transform: scale(1.25); opacity: 0; }
+  100% { opacity: 0; }
+}
+@keyframes dash-move {
+  to { stroke-dashoffset: -1000; }
+}
+@keyframes spin-slow {
+  to { transform: rotate(360deg); }
+}
+
+/*
+  Con `prefers-reduced-motion` no hay fijado, ni parallax de cursor, ni cámara,
+  ni zoom de scroll (todo eso se apaga en JS con `gsap.matchMedia`). Aquí se
+  aplana el mundo, se serena la niebla y se apagan los bucles decorativos.
+*/
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .hero-scroll-wrapper { height: auto; }
+  /* El capítulo se convierte en un cartel de una pantalla: el canvas debe medir
+     exactamente eso para que la cámara lo encuadre bien, y el bloque
+     institucional se ancla abajo en lugar de estirar el contenedor. */
+  .hero-viewport { --hero-persp: 6000; position: relative; height: 100svh; }
+  .hero-data {
+    top: auto;
+    bottom: 26px;
+    transform: translateX(-50%);
+    pointer-events: auto;
+  }
+  .hero-portal { display: none; }
+  /* Sin la coreografía, `.hero-layout` y `.hero-data` deben fluir en orden. Si
+     sólo uno de los dos sale del posicionamiento absoluto, el que queda en el
+     flujo se coloca arriba del todo y se superpone a la navegación. */
+  .fog-front-a, .fog-front-b { opacity: .16; }
+  .hologram-scan,
+  .holographic-hud,
+  .beam-motes i,
+  .beam-dust i,
+  .near-particles i,
+  .platform-hud-ring { animation: none !important; }
+  /* La niebla sí sigue, pero muy lenta: da vida sin provocar molestias. */
+  .ambient-fog-a, .ambient-fog-b, .ambient-fog-mid,
+  .ambient-fog-front-a, .ambient-fog-front-b {
+    animation-duration: 120s !important;
+    animation-iteration-count: infinite !important;
+  }
+  .scene-orbit { animation-duration: 180s !important; animation-iteration-count: infinite !important; }
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* ------------------------------------------- etiquetas del interior 3D */
+
+/*
+  Las etiquetas de los nodos internos son DOM real anclado al espacio 3D con
+  `<Html>` de drei, no texturas: se pueden leer y ampliar. Se mantienen
+  pequeñas a propósito — son marcas sobre un nodo, no tarjetas.
+*/
+.interior-label,
+.interior-core-label {
+  width: max-content;
+  max-width: 210px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .18s linear;
+  text-shadow: 0 0 12px rgba(2, 18, 40, .95);
+}
+.interior-label strong,
+.interior-core-label strong {
+  display: block;
+  color: #eaf9ff;
+  font-family: var(--font-space-grotesk), sans-serif;
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: -.01em;
+}
+.interior-label small,
+.interior-core-label small {
+  display: block;
+  margin-top: 3px;
+  color: #9fd2ef;
+  font-size: 11px;
+  line-height: 1.35;
+}
+.interior-label::before {
+  content: '';
+  position: absolute;
+  top: 9px;
+  left: -14px;
+  width: 10px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(120, 226, 255, .9));
+}
+.interior-core-label { text-align: center; }
+.interior-core-label strong { font-size: 17px; }
