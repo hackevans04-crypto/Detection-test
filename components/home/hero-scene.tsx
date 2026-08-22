@@ -15,6 +15,7 @@ import {
   PROGRESS_DAMPING,
   bell,
   clamp01,
+  exteriorVisibility,
   smoothstep,
   smootherstep,
   type HeroSceneState,
@@ -29,8 +30,10 @@ import {
   type Framing,
 } from '@/lib/hero/stage'
 import { createHeroRail, resolveHeroDirector } from '@/lib/hero/director'
+import { CinematicSky } from './cinematic-sky'
 import { FogLayer } from './fog-layer'
 import { LightRig, StageCastActors, useStageCast, type StageCast } from './hero-stage'
+import { LivingLandscape } from './living-landscape'
 
 const HERO = '/detection-home/hero'
 const LAYERS = `${HERO}/layers`
@@ -92,15 +95,26 @@ function coverPlate(framing: Framing, z: number, viewportAspect: number, imageAs
 
 function Plate({
   texture, z, framing, aspect, imageAspect, margin = 1.5, opacity = 1, renderOrder = 0, additive = false, tint, offsetY = 0,
+  sceneState, exterior = false,
 }: {
   texture: THREE.Texture; z: number; framing: Framing; aspect: number; imageAspect: number
   margin?: number; opacity?: number; renderOrder?: number; additive?: boolean; tint?: string; offsetY?: number
+  sceneState?: SceneStateRef; exterior?: boolean
 }) {
   const [width, height] = coverPlate(framing, z, aspect, imageAspect, margin)
+  const mesh = useRef<THREE.Mesh>(null)
+  const material = useRef<THREE.MeshBasicMaterial>(null)
+  useFrame(() => {
+    if (!sceneState || !exterior) return
+    const visibility = exteriorVisibility(sceneState.current.progress)
+    if (mesh.current) mesh.current.visible = visibility > 0.004
+    if (material.current) material.current.opacity = opacity * visibility
+  })
   return (
-    <mesh position={[0, offsetY * height, z]} scale={[width, height, 1]} renderOrder={renderOrder} frustumCulled={false}>
+    <mesh ref={mesh} position={[0, offsetY * height, z]} scale={[width, height, 1]} renderOrder={renderOrder} frustumCulled={false}>
       <planeGeometry args={[1, 1]} />
       <meshBasicMaterial
+        ref={material}
         map={texture}
         color={tint ?? '#ffffff'}
         transparent
@@ -147,7 +161,7 @@ function ParticleLayer({
   size: number; opacity: number; color: string; sceneState: SceneStateRef
   drift?: number; seed?: number; spin?: number; softness?: number
   pointerStrength?: number
-  activity?: 'always' | 'entry' | 'inner' | 'portal'
+  activity?: 'always' | 'exterior' | 'entry' | 'inner' | 'portal'
   /**
    * Crecimiento extra durante la órbita, como fracción del tamaño base.
    *
@@ -182,7 +196,9 @@ function ParticleLayer({
     const signal = sceneState.current
     if (!points.current) return
     const velocity = signal.director.particleVelocity
-    const activityWeight = activity === 'entry'
+    const activityWeight = activity === 'exterior'
+      ? exteriorVisibility(signal.progress)
+      : activity === 'entry'
       ? signal.director.entryIntensity
       : activity === 'inner'
         ? Math.max(signal.director.entryIntensity * 0.72, signal.director.innerIntensity)
@@ -1002,7 +1018,9 @@ function World({ sceneState, framing, quality, cast, debugScene }: { sceneState:
     // Niebla global sólo para integrar distancias. No sustituye a las cartas.
     if (worldFog.current) worldFog.current.density = 0.007 + signal.director.fogIntensity * 0.005
     const material = networkPlate.current?.material as THREE.MeshBasicMaterial | undefined
-    if (material) material.opacity = 0.05 + bell(p, 0.14, PHASE.ORBIT, 0.56) * 0.12
+    const exterior = exteriorVisibility(p)
+    if (material) material.opacity = (0.04 + bell(p, 0.14, PHASE.ORBIT, 0.56) * 0.12) * exterior
+    if (networkPlate.current) networkPlate.current.visible = exterior > 0.004
     signal.fogOpacity = THREE.MathUtils.lerp(0.26, 0.14, smoothstep(PHASE.SYNTHESIS, PHASE.HANDOFF, p))
     signal.particleCount = n(400) + n(180) + n(80) + n(160) + n(28) + n(16) + n(72)
   })
@@ -1012,15 +1030,23 @@ function World({ sceneState, framing, quality, cast, debugScene }: { sceneState:
       <fogExp2 ref={worldFog} attach="fog" args={['#03142c', 0.0125]} />
 
       {/* ------------------------------------------------------ mundo profundo */}
-      <Plate texture={stars} z={WORLD_Z.deepStars} framing={framing} aspect={aspect} imageAspect={1.78} opacity={0.55} additive margin={1.35} renderOrder={0} />
-      <Plate texture={mountainsFar} z={WORLD_Z.mountainsFar} framing={framing} aspect={aspect} imageAspect={1.87} tint="#5d76a0" margin={1.35} renderOrder={1} offsetY={-0.02} />
+      <Plate
+        texture={stars} z={WORLD_Z.deepStars} framing={framing} aspect={aspect} imageAspect={1.78}
+        opacity={0.16} additive margin={1.35} renderOrder={0} sceneState={sceneState} exterior
+      />
+      <LivingLandscape
+        texture={mountainsFar} sceneState={sceneState} z={WORLD_Z.mountainsFar} framing={framing}
+        viewportAspect={aspect} imageAspect={1.87} tint="#8298b8" margin={1.35} renderOrder={1}
+        offsetY={-0.02} depth={0.12} phase={0.4}
+      />
+      <CinematicSky sceneState={sceneState} framing={framing} quality={quality} />
 
       {/* DeepParticles: cuatrocientas, diminutas, prácticamente inmóviles. Son
           la referencia contra la que se mide todo lo demás. */}
-      <ParticleLayer count={n(400)} spread={[74, 36, 15]} center={[0, 2, WORLD_Z.fogFar]} size={0.075} opacity={0.42} color="#4c8ef8" sceneState={sceneState} seed={3} pointerStrength={0.015} />
+      <ParticleLayer count={n(400)} spread={[74, 36, 15]} center={[0, 2, WORLD_Z.fogFar]} size={0.075} opacity={0.42} color="#4c8ef8" sceneState={sceneState} seed={3} pointerStrength={0.015} activity="exterior" />
 
       {/* FogFar */}
-      <FogLayer texture={fogDeep} sceneState={sceneState} position={[-6, -3.2, WORLD_Z.fogFar]} scale={[54, 18]} opacity={0.3} flowSpeed={[0.011, 0.004]} noiseScale={2.6} distortion={0.03} density={0.95} scrollShift={[-1.6, 0.3]} renderOrder={3} depth={0.08} />
+      <FogLayer texture={fogDeep} sceneState={sceneState} position={[-6, -3.2, WORLD_Z.fogFar]} scale={[54, 18]} opacity={0.34} flowSpeed={[0.012, 0.003]} noiseScale={2.6} distortion={0.03} density={0.95} scrollShift={[-1.6, 0.3]} renderOrder={3} depth={0.08} exterior />
 
       <mesh ref={networkPlate} position={[framing.stageX * 2.4, 2, WORLD_Z.techNetwork]} scale={[26, 15, 1]} renderOrder={4} frustumCulled={false}>
         <planeGeometry args={[1, 1]} />
@@ -1028,20 +1054,28 @@ function World({ sceneState, framing, quality, cast, debugScene }: { sceneState:
       </mesh>
 
       {/* ---------------------------------------------------------- mundo medio */}
-      <Plate texture={mountainsMid} z={WORLD_Z.mountainsMid} framing={framing} aspect={aspect} imageAspect={1.87} opacity={0.86} tint="#7f9bc4" margin={1.4} renderOrder={5} offsetY={-0.03} />
+      <LivingLandscape
+        texture={mountainsMid} sceneState={sceneState} z={WORLD_Z.mountainsMid} framing={framing}
+        viewportAspect={aspect} imageAspect={1.87} opacity={0.92} tint="#8da9cf" margin={1.4}
+        renderOrder={5} offsetY={-0.03} depth={0.56} phase={1.8}
+      />
 
       {/* FogBack: justo detrás del cerebro. Es la capa que le da un fondo contra
           el que recortarse mientras la cámara orbita. */}
-      <FogLayer texture={fogBack} sceneState={sceneState} position={[3.5, -1.6, WORLD_Z.fogBack]} scale={[30, 10]} opacity={0.2} flowSpeed={[-0.014, 0.005]} noiseScale={3.4} distortion={0.026} density={0.86} scrollShift={[1.1, -0.15]} renderOrder={6} depth={0.3} />
+      <FogLayer texture={fogBack} sceneState={sceneState} position={[3.5, -1.6, WORLD_Z.fogBack]} scale={[30, 10]} opacity={0.24} flowSpeed={[0.016, 0.004]} noiseScale={3.4} distortion={0.026} density={0.86} scrollShift={[1.1, -0.15]} renderOrder={6} depth={0.3} exterior />
 
       {/* WorldParticles: ciento ochenta, movimiento lento, a media distancia. */}
-      <ParticleLayer count={n(180)} spread={[34, 18, 10]} center={[0, 0.5, WORLD_Z.mountainsFront]} size={0.05} opacity={0.44} color="#79dfff" sceneState={sceneState} drift={0.05} seed={7} pointerStrength={0.06} />
+      <ParticleLayer count={n(180)} spread={[34, 18, 10]} center={[0, 0.5, WORLD_Z.mountainsFront]} size={0.05} opacity={0.44} color="#79dfff" sceneState={sceneState} drift={0.05} seed={7} pointerStrength={0.06} activity="exterior" />
 
-      <Plate texture={mountainsFront} z={WORLD_Z.mountainsFront} framing={framing} aspect={aspect} imageAspect={1.87} opacity={0.94} tint="#9db6d8" margin={1.5} renderOrder={7} offsetY={-0.05} />
+      <LivingLandscape
+        texture={mountainsFront} sceneState={sceneState} z={WORLD_Z.mountainsFront} framing={framing}
+        viewportAspect={aspect} imageAspect={1.87} opacity={0.96} tint="#a7bddb" margin={1.5}
+        renderOrder={7} offsetY={-0.05} depth={1} phase={3.1}
+      />
 
       {/* FogMid: a la profundidad del cerebro. Se mete entre la montaña
           delantera y el sujeto, que es donde hace falta aire. */}
-      <FogLayer texture={fogDeep} sceneState={sceneState} position={[-2.5, -1.9, WORLD_Z.fogMiddle]} scale={[18, 6.2]} opacity={0.16} flowSpeed={[0.017, -0.007]} noiseScale={4} distortion={0.036} density={0.8} scrollShift={[0.9, 0.2]} renderOrder={8} depth={0.62} />
+      <FogLayer texture={fogDeep} sceneState={sceneState} position={[-2.5, -1.9, WORLD_Z.fogMiddle]} scale={[18, 6.2]} opacity={0.2} flowSpeed={[0.021, 0.002]} noiseScale={4} distortion={0.036} density={0.8} scrollShift={[0.9, 0.2]} renderOrder={8} depth={0.62} exterior />
 
       {/* -------------------------------------------------------------- escena */}
       <LightRig cast={cast} sceneState={sceneState} framing={framing} />
@@ -1108,19 +1142,33 @@ function World({ sceneState, framing, quality, cast, debugScene }: { sceneState:
       />
 
       {/* ------------------------------------------------------ mundo delantero */}
+      {/* Cortina de apertura: el primer gesto separa y erosiona dos bancos a
+          distinta profundidad. El cerebro ya existe detrás de ellos, como
+          silueta energética, y aparece completo al abrirse el aire. */}
+      <FogLayer
+        texture={fogBack} sceneState={sceneState} position={[-2.1, 0.15, 2.25]} scale={[13.5, 5.2]}
+        opacity={0.52} flowSpeed={[0.026, 0.004]} noiseScale={3.7} distortion={0.07} density={0.96}
+        scrollShift={[-15.5, 1.25]} renderOrder={18} depth={1.12} fadeOut={[0.025, 0.16]} exterior
+      />
+      {quality !== 'low' ? <FogLayer
+        texture={fogFront} sceneState={sceneState} position={[2.7, -0.3, 3.05]} scale={[14.8, 5.6]}
+        opacity={0.38} flowSpeed={[0.031, 0.006]} noiseScale={4.45} distortion={0.082} density={0.9}
+        scrollShift={[16.8, 1.65]} renderOrder={19} depth={1.38} fadeOut={[0.035, 0.175]} exterior
+      /> : null}
+
       {/* FogFrontA cruza la silueta durante la activación. Tapar un poco al
           protagonista dice más sobre la profundidad que veinte órbitas. */}
       <FogLayer
         texture={fogFront} sceneState={sceneState} position={[-8.5, -0.9, WORLD_Z.fogFrontLeft]} scale={[12, 4]}
         opacity={0.3} flowSpeed={[0.021, 0.009]} noiseScale={4.6} distortion={0.05} density={0.95}
-        scrollShift={[13, 0.6]} renderOrder={20} depth={1.25} window={[0.3, 0.45, 0.59]}
+        scrollShift={[13, 0.6]} renderOrder={20} depth={1.25} window={[0.3, 0.45, 0.59]} exterior
       />
       {/* FogFrontB cruza durante la institución: disimula el cambio de
           composición justo cuando entran los dos paneles. */}
       <FogLayer
         texture={fogFront} sceneState={sceneState} position={[7.5, -1.6, WORLD_Z.fogFrontRight]} scale={[13, 4.4]}
         opacity={0.26} flowSpeed={[-0.016, 0.006]} noiseScale={3.9} distortion={0.045} density={0.88}
-        scrollShift={[-14, 1]} renderOrder={21} depth={1.4} window={[0.78, 0.88, 1]}
+        scrollShift={[-14, 1]} renderOrder={21} depth={1.4} window={[0.78, 0.88, 1]} exterior
       />
 
       {/* LensParticles: dieciséis, grandes y desenfocadas, casi encima de la
@@ -1180,8 +1228,11 @@ export function HeroScene({ sceneState }: { sceneState: SceneStateRef }) {
       const width = window.innerWidth
       const height = window.innerHeight
       const test = readTestMode(window.location.search)
+      const requestedTimeParam = new URLSearchParams(window.location.search).get('t')
+      const requestedTime = requestedTimeParam === null ? null : Number(requestedTimeParam)
       const signal = sceneState.current
       signal.forcedProgress = test.active ? test.progress : null
+      signal.forcedTime = test.active && requestedTime !== null && Number.isFinite(requestedTime) ? Math.max(0, requestedTime) : null
       if (test.active) {
         signal.progress = test.progress
         signal.targetProgress = test.progress
@@ -1199,6 +1250,9 @@ export function HeroScene({ sceneState }: { sceneState: SceneStateRef }) {
           // entra y el portal se abre en el mismo progreso.
           ;(window as unknown as { __heroSetDomProgress?: (v: number) => void }).__heroSetDomProgress?.(clamped)
         }
+        ;(window as unknown as { __heroSetTime?: (value: number) => void }).__heroSetTime = (value) => {
+          signal.forcedTime = Math.max(0, Number.isFinite(value) ? value : 0)
+        }
       }
       setEnvironment((current) => ({
         ready: true,
@@ -1211,7 +1265,11 @@ export function HeroScene({ sceneState }: { sceneState: SceneStateRef }) {
     }
     read()
     window.addEventListener('resize', read, { passive: true })
-    return () => window.removeEventListener('resize', read)
+    return () => {
+      window.removeEventListener('resize', read)
+      delete (window as unknown as { __heroSetProgress?: unknown }).__heroSetProgress
+      delete (window as unknown as { __heroSetTime?: unknown }).__heroSetTime
+    }
   }, [sceneState])
 
   const framing = environment.framing
@@ -1254,13 +1312,19 @@ function HeroDirector({ sceneState, framing, radius, reducedMotion }: { sceneSta
   useFrame((state, delta) => {
     const signal = sceneState.current
     if (signal.forcedProgress !== null) {
-      signal.time = 12
+      signal.time = signal.forcedTime ?? 12
       signal.progress = signal.forcedProgress
       signal.targetProgress = signal.forcedProgress
       signal.pointerX = 0
       signal.pointerY = 0
+    } else if (reducedMotion) {
+      signal.time = 0
+      signal.progress = 0.16
+      signal.targetProgress = 0.16
+      signal.pointerX = 0
+      signal.pointerY = 0
     } else {
-      signal.time = reducedMotion ? 0 : state.clock.elapsedTime
+      signal.time = state.clock.elapsedTime
       const ease = 1 - Math.exp(-delta / PROGRESS_DAMPING)
       signal.progress += (signal.targetProgress - signal.progress) * ease
     }

@@ -3,7 +3,7 @@
 import { useFrame } from '@react-three/fiber'
 import { useEffect, useMemo, useRef, type MutableRefObject } from 'react'
 import * as THREE from 'three'
-import { bell, type HeroSceneState } from '@/lib/hero/depth'
+import { bell, exteriorVisibility, smootherstep, type HeroSceneState } from '@/lib/hero/depth'
 
 type FogLayerProps = {
   texture: THREE.Texture
@@ -23,6 +23,10 @@ type FogLayerProps = {
    * traslación por capa, que es lo que antes aplanaba la lectura.
    */
   depth: number
+  /** La atmósfera exterior se apaga antes de entrar al cerebro. */
+  exterior?: boolean
+  /** Disolución irreversible dentro del tramo [inicio, fin]. */
+  fadeOut?: readonly [number, number]
   /**
    * Ventana [entra, pico, sale] en la que esta capa está encendida.
    *
@@ -36,10 +40,17 @@ type FogLayerProps = {
 }
 
 const vertexShader = /* glsl */ `
+  uniform float uTime;
+  uniform float uDepthFade;
   varying vec2 vUv;
   void main() {
     vUv = uv;
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    vec3 billow = position;
+    float waveA = sin(uv.x * 8.0 + uTime * 0.18);
+    float waveB = sin(uv.y * 6.0 - uTime * 0.13 + uv.x * 3.0);
+    billow.z += (waveA + waveB) * 0.012 * uDepthFade;
+    billow.y += waveB * 0.0025 * uDepthFade;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(billow, 1.0);
   }
 `
 
@@ -53,6 +64,7 @@ const fragmentShader = /* glsl */ `
   uniform float uDensity;
   uniform float uProgress;
   uniform float uDepthFade;
+  uniform float uExit;
   varying vec2 vUv;
 
   float hash(vec2 p) {
@@ -94,7 +106,9 @@ const fragmentShader = /* glsl */ `
     float feather = mix(0.18, 0.075, clamp(uDepthFade, 0.0, 1.0));
     float edge = smoothstep(0.0, feather, vUv.x) * smoothstep(0.0, feather, 1.0 - vUv.x);
     edge *= smoothstep(0.0, feather, vUv.y) * smoothstep(0.0, feather, 1.0 - vUv.y);
-    float alpha = breakup * edge * uOpacity * uDensity * breathing;
+    float dissolveField = fine * 0.62 + coarse * 0.38;
+    float dissolve = 1.0 - smoothstep(dissolveField - 0.18, dissolveField + 0.18, uExit);
+    float alpha = breakup * edge * uOpacity * uDensity * breathing * dissolve;
     vec3 tint = mix(cloud.rgb, vec3(0.2, 0.55, 0.86), 0.1 + fine * 0.08);
     gl_FragColor = vec4(tint, alpha);
   }
@@ -113,6 +127,8 @@ export function FogCard({
   scrollShift,
   renderOrder,
   depth,
+  exterior = false,
+  fadeOut,
   window: activeWindow,
 }: FogLayerProps) {
   const mesh = useRef<THREE.Mesh>(null)
@@ -127,6 +143,7 @@ export function FogCard({
       uDensity: { value: density },
       uProgress: { value: 0 },
       uDepthFade: { value: Math.min(depth / 1.5, 1) },
+      uExit: { value: 0 },
     },
     vertexShader,
     fragmentShader,
@@ -145,23 +162,34 @@ export function FogCard({
     material.uniforms.uTime.value = signal.time
     material.uniforms.uProgress.value = p
     let directedOpacity = opacity * signal.director.fogIntensity
+    const exteriorWeight = exterior ? exteriorVisibility(p) : 1
+    const exit = fadeOut ? smootherstep(fadeOut[0], fadeOut[1], p) : 0
+    directedOpacity *= exteriorWeight * (1 - exit)
+    material.uniforms.uExit.value = exit
     if (activeWindow) {
       const weight = bell(p, activeWindow[0], activeWindow[1], activeWindow[2])
       directedOpacity *= weight
-      if (mesh.current) mesh.current.visible = weight > 0.004
-    } else if (mesh.current) {
-      mesh.current.visible = true
     }
     material.uniforms.uOpacity.value = directedOpacity
+    if (mesh.current) mesh.current.visible = directedOpacity > 0.003
     if (!mesh.current || mesh.current.visible === false) return
     // Deriva propia de la nube por el mundo, además de la deformación interna
     // del shader y del parallax de cámara: son los tres movimientos que evitan
     // que se lea como un PNG deslizándose.
     const targetX = position[0] + scrollShift[0] * p - signal.pointerX * depth * 0.12
     const targetY = position[1] + scrollShift[1] * p + signal.pointerY * depth * 0.06
-    const ease = 1 - Math.exp(-delta * 4.5)
-    mesh.current.position.x = THREE.MathUtils.lerp(mesh.current.position.x, targetX, ease)
-    mesh.current.position.y = THREE.MathUtils.lerp(mesh.current.position.y, targetY, ease)
+    const gust = Math.sin(signal.time * 0.17 + depth * 2.1) * depth * 0.035
+    const targetWindX = targetX + signal.time * 0.012 * depth + gust
+    if (signal.forcedProgress !== null) {
+      mesh.current.position.x = targetWindX
+      mesh.current.position.y = targetY
+    } else {
+      const ease = 1 - Math.exp(-delta * 4.5)
+      mesh.current.position.x = THREE.MathUtils.lerp(mesh.current.position.x, targetWindX, ease)
+      mesh.current.position.y = THREE.MathUtils.lerp(mesh.current.position.y, targetY, ease)
+    }
+    const breath = 1 + Math.sin(signal.time * 0.09 + depth) * 0.006
+    mesh.current.scale.set(scale[0] * breath, scale[1] / breath, 1)
   })
 
   return (

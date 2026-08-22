@@ -35,6 +35,8 @@ export type HeroSceneState = {
   time: number
   /** Progreso forzado por `?heroTest=1&p=`; `null` cuando manda el scroll. */
   forcedProgress: number | null
+  /** Reloj forzado por el arnés visual; permite comprobar vida sin scroll. */
+  forcedTime: number | null
   quality: 'high' | 'medium' | 'low'
   dpr: number
   pointerX: number
@@ -86,6 +88,7 @@ export function createHeroSceneState(): HeroSceneState {
     targetProgress: 0,
     time: 0,
     forcedProgress: null,
+    forcedTime: null,
     quality: 'high',
     dpr: 1,
     /** Puntero normalizado a [-0.5, 0.5]. */
@@ -148,6 +151,21 @@ export function smootherstep(from: number, to: number, value: number) {
   const t = range(value, from, to)
   return t * t * t * (t * (t * 6 - 15) + 10)
 }
+
+/** La cortina atmosférica ocupa el plano inicial y se disuelve con el primer gesto. */
+export const openingCloudVisibility = (progress: number) => 1 - smootherstep(0.025, 0.16, progress)
+
+/** El reparto 3D nace detrás de la nube; no cambia de modelo, sólo se revela. */
+export const openingSubjectReveal = (progress: number) => 0.14 + smootherstep(0.045, 0.155, progress) * 0.86
+
+/**
+ * El paisaje pertenece al exterior. Desaparece antes de cruzar el cerebro,
+ * regresa durante el reensamble y vuelve a ceder el plano al portal final.
+ */
+export const exteriorVisibility = (progress: number) => Math.max(
+  1 - smootherstep(0.34, 0.47, progress),
+  smootherstep(0.76, 0.83, progress) * (1 - smootherstep(0.925, 0.985, progress)),
+)
 
 /** Traslada `value` del intervalo de entrada al de salida, sin recortar fuera. */
 export const remap = (value: number, fromA: number, fromB: number, toA: number, toB: number) =>

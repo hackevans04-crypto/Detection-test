@@ -223,10 +223,11 @@
   inset: 0;
   pointer-events: none;
   background:
-    linear-gradient(90deg, rgba(1, 8, 20, .62) 0%, rgba(1, 9, 22, .2) 45%, rgba(1, 7, 17, .34) 100%),
+    /* Contraste para el copy a la izquierda y cielo abierto sobre la luna. */
+    linear-gradient(90deg, rgba(1, 8, 20, .66) 0%, rgba(1, 9, 22, .18) 45%, rgba(1, 7, 17, .12) 76%, rgba(1, 7, 17, .22) 100%),
     /* La última franja cierra en el color de fondo exacto: así el borde
        inferior del hero enlaza sin costura con las métricas. */
-    linear-gradient(180deg, rgba(1, 7, 17, .36), transparent 42%, rgba(2, 9, 19, .66) 90%, #020913 100%);
+    linear-gradient(180deg, rgba(1, 7, 17, .24), transparent 42%, rgba(2, 9, 19, .66) 90%, #020913 100%);
 }
 
 /*

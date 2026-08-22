@@ -4,7 +4,7 @@ import { useFrame } from '@react-three/fiber'
 import { useGLTF } from '@react-three/drei'
 import { useEffect, useMemo, useRef, type MutableRefObject } from 'react'
 import * as THREE from 'three'
-import { PHASE, smoothstep, smootherstep, type HeroSceneState } from '@/lib/hero/depth'
+import { PHASE, openingSubjectReveal, smoothstep, smootherstep, type HeroSceneState } from '@/lib/hero/depth'
 import {
   ACTORS,
   BRAIN_URL,
@@ -151,7 +151,7 @@ function SupportActor({
   useFrame(() => {
     const signal = sceneState.current
     const directed = signal.director
-    const weight = directed.actorWeights[spec.key]
+    const weight = directed.actorWeights[spec.key] * openingSubjectReveal(signal.progress)
     if (positionRoot.current) positionRoot.current.visible = weight > 0.002
     if (weight <= 0.002) return
 
@@ -213,7 +213,7 @@ function NestedAssemblyActor({
   useFrame(() => {
     const signal = sceneState.current
     const directed = signal.director
-    const weight = directed.actorWeights[spec.key]
+    const weight = directed.actorWeights[spec.key] * openingSubjectReveal(signal.progress)
     if (root.current) root.current.visible = weight > 0.004
     if (weight <= 0.004) return
 
@@ -270,6 +270,7 @@ function BrainFresnel({ geometry, sceneState }: { geometry: THREE.BufferGeometry
       uTime: { value: 0 },
       uOpacity: { value: 0 },
       uScanner: { value: 0 },
+      uEnergy: { value: 0 },
       uColorA: { value: new THREE.Color('#16cfff') },
       uColorB: { value: new THREE.Color('#7868ff') },
     },
@@ -290,6 +291,7 @@ function BrainFresnel({ geometry, sceneState }: { geometry: THREE.BufferGeometry
       uniform float uTime;
       uniform float uOpacity;
       uniform float uScanner;
+      uniform float uEnergy;
       uniform vec3 uColorA;
       uniform vec3 uColorB;
       varying vec3 vNormalView;
@@ -299,8 +301,15 @@ function BrainFresnel({ geometry, sceneState }: { geometry: THREE.BufferGeometry
         float rim = pow(1.0 - max(dot(normalize(vNormalView), normalize(vViewDir)), 0.0), 2.7);
         float scan = exp(-pow((fract(uScanner) * 3.2 - 1.6) - vWorld.y, 2.0) * 18.0);
         float breathe = 0.76 + 0.24 * sin(uTime * 1.45 + vWorld.y * 3.0);
-        vec3 color = mix(uColorB, uColorA, clamp(rim + scan * 0.45, 0.0, 1.0));
-        gl_FragColor = vec4(color, uOpacity * (rim * 0.78 + scan * 0.34) * breathe);
+        float neuralField = sin(vWorld.x * 8.4 + sin(vWorld.y * 5.1) * 1.7 + uTime * 1.34);
+        neuralField *= sin(vWorld.z * 9.2 - vWorld.y * 3.8 - uTime * 1.08);
+        float neuralPath = pow(clamp(neuralField * 0.5 + 0.5, 0.0, 1.0), 13.0);
+        float traveling = pow(clamp(sin(uTime * 2.45 - vWorld.y * 6.4 + vWorld.x * 2.1) * 0.5 + 0.5, 0.0, 1.0), 7.0);
+        float electricity = neuralPath * (0.18 + traveling * 0.82) * uEnergy;
+        vec3 color = mix(uColorB, uColorA, clamp(rim + scan * 0.45 + electricity, 0.0, 1.0));
+        color += vec3(0.55, 0.94, 1.0) * electricity * 1.35;
+        float alpha = uOpacity * (rim * 0.78 + scan * 0.34 + electricity * 1.1) * breathe;
+        gl_FragColor = vec4(color, alpha);
       }
     `,
     transparent: true,
@@ -313,7 +322,11 @@ function BrainFresnel({ geometry, sceneState }: { geometry: THREE.BufferGeometry
     const signal = sceneState.current
     material.uniforms.uTime.value = signal.time
     material.uniforms.uScanner.value = signal.progress
-    material.uniforms.uOpacity.value = signal.director.actorWeights.brain * (
+    material.uniforms.uEnergy.value = Math.max(
+      0.42 * (1 - smootherstep(0.18, 0.36, signal.progress)),
+      signal.director.neuralIntensity,
+    )
+    material.uniforms.uOpacity.value = signal.director.actorWeights.brain * openingSubjectReveal(signal.progress) * (
       0.14 + signal.director.hudIntensity * 0.07 + signal.director.scannerIntensity * 0.22
     )
   })
@@ -356,6 +369,8 @@ export function StageCastActors({
     const signal = sceneState.current
     const directed = signal.director
     const time = signal.time
+    const idleWeight = 1 - smootherstep(0.12, 0.3, signal.progress)
+    const livingScale = 1 + Math.sin(time * 1.337) * 0.0055 * idleWeight
     // Las capturas y el scroll inverso deben resolver el mismo fotograma sin
     // depender del punto anterior. En interacción normal el director ya aporta
     // inercia y esta capa sólo suaviza la respiración del ensamblaje.
@@ -369,7 +384,7 @@ export function StageCastActors({
       node.rotation.y = THREE.MathUtils.lerp(node.rotation.y, directed.brainRotation[1] + ambientYaw + signal.pointerX * 0.012 * quiet, damping)
       node.rotation.x = THREE.MathUtils.lerp(node.rotation.x, directed.brainRotation[0] + ambientPitch - signal.pointerY * 0.008 * quiet, damping)
       node.rotation.z = THREE.MathUtils.lerp(node.rotation.z, directed.brainRotation[2], damping)
-      const float = Math.sin(time * 0.42) * 0.04 + Math.sin(time * 1.31) * 0.008
+      const float = Math.sin(time * 0.42) * 0.016 + Math.sin(time * 1.31) * 0.004
       node.position.set(
         directed.brainPosition[0] * radius,
         (directed.brainPosition[1] + float * quiet) * radius,
@@ -380,8 +395,8 @@ export function StageCastActors({
     }
 
     const directedScale = directed.brainScale
-    outerScale.current?.scale.setScalar(brainScale * directedScale)
-    innerScale.current?.scale.setScalar(directedScale)
+    outerScale.current?.scale.setScalar(brainScale * directedScale * livingScale)
+    innerScale.current?.scale.setScalar(directedScale * livingScale)
 
     const explode = directed.assemblyExplode
     const sourceTravel = radius * 0.46 / Math.max(brainScale, 1e-6)
@@ -402,16 +417,18 @@ export function StageCastActors({
       rightPivot.current.rotation.set(-0.028 * explode, -0.14 * explode, 0.075 * explode)
     }
 
-    const alpha = directed.actorWeights.brain
+    const alpha = directed.actorWeights.brain * openingSubjectReveal(signal.progress)
     brainMaterial.opacity = alpha
     brainMaterial.depthWrite = alpha > 0.8
-    brainMaterial.emissiveIntensity = 0.055 + directed.hudIntensity * 0.07 + directed.scannerIntensity * 0.16 + directed.innerIntensity * 0.05
+    brainMaterial.emissiveIntensity = (
+      0.055 + directed.hudIntensity * 0.07 + directed.scannerIntensity * 0.16 + directed.innerIntensity * 0.05
+    ) * (0.97 + Math.sin(time * 1.11) * 0.03)
 
     assembly.current?.getWorldPosition(worldCenter)
     const distance = state.camera.position.distanceTo(worldCenter)
     signal.cameraDistanceR = distance / radius
     signal.brainScreenHeight = (BRAIN_WORLD_HEIGHT * directedScale) / (2 * halfHeightAt(Math.max(distance, 0.001)))
-    signal.brainScale = brainScale * directedScale
+    signal.brainScale = brainScale * directedScale * livingScale
     signal.brainOpacity = alpha
     signal.brainRadius = radius
     signal.brainBounds = [cast.brainSize.x, cast.brainSize.y, cast.brainSize.z]
@@ -498,18 +515,20 @@ export function LightRig({ cast, sceneState, framing }: { cast: StageCast; scene
     const cameraAzimuth = Math.atan2(signal.cameraPosition[0] - framing.stageX, signal.cameraPosition[2])
 
     if (key.current) {
-      key.current.intensity = directed.keyLightIntensity
+      key.current.intensity = directed.keyLightIntensity * (0.975 + Math.sin(signal.time * 0.47) * 0.025)
       const angle = cameraAzimuth - THREE.MathUtils.degToRad(41)
       key.current.position.set(Math.sin(angle) * radius * 3.9, radius * 2.4, Math.cos(angle) * radius * 3.9)
     }
     if (rim.current) {
-      rim.current.intensity = directed.rimLightIntensity
+      rim.current.intensity = directed.rimLightIntensity * (0.94 + Math.sin(signal.time * 0.61 + 1.4) * 0.06)
       const angle = cameraAzimuth + THREE.MathUtils.degToRad(118 + reveal * 22)
       rim.current.position.set(Math.sin(angle) * radius * 3.4, radius * 1.5, Math.cos(angle) * radius * 3.4)
     }
     if (platform.current) platform.current.intensity = directed.platformIntensity * 1.45 * radius
     if (accent.current) {
-      const orbitAngle = signal.time * 0.09 * reveal
+      // La luz exploradora ya recorre el cerebro en reposo. Al avanzar se
+      // mezcla sin salto con la posición dirigida de cada plano.
+      const orbitAngle = signal.time * THREE.MathUtils.lerp(0.13, 0.09, reveal)
       const x = directed.accentLightPosition[0]
       const z = directed.accentLightPosition[2]
       accent.current.position.set(
