@@ -95,10 +95,8 @@
    ========================================================================== */
 
 .hero-scroll-wrapper {
-  /* Sin altura propia: ScrollTrigger inserta aquí su `pin-spacer` y es él quien
-     define el recorrido (290 vh desktop / 240 vh tablet). Fijar la altura lo
-     anularía y el hero
-     dejaría de quedarse quieto. */
+  /* ScrollTrigger añade 90–95 vh de recorrido a la pantalla fijada: el capítulo
+     completo queda en 190–195 vh, dentro de la duración cinematográfica pedida. */
   position: relative;
   background: #020913;
 }
@@ -534,7 +532,15 @@
   padding: 80px 0 118px;
   pointer-events: none;
 }
-.hero-copy { position: relative; max-width: 560px; pointer-events: auto; }
+/*
+  La portada emerge desde el fondo con el scroll, así que sus piezas se
+  transforman en 3D. `preserve-3d` mantiene la profundidad de las líneas del
+  titular dentro del h1; sin él, el navegador aplana cada hijo a su plano y el
+  escalonado en `z` se convierte en un simple desvanecido.
+*/
+.hero-copy { position: relative; max-width: 560px; transform-style: preserve-3d; pointer-events: auto; }
+.hero-copy h1 { transform-style: preserve-3d; }
+.hero-title-line { will-change: transform, opacity; }
 
 .hero-kicker {
   display: inline-flex;
@@ -613,11 +619,69 @@
 .hero-scroll-cue i { position: relative; width: 1px; height: 28px; overflow: hidden; background: rgba(89, 216, 255, .18); }
 .hero-scroll-cue i::after { content: ''; position: absolute; inset: -55% 0 auto; height: 55%; background: #73efff; box-shadow: 0 0 8px #21dfff; animation: scroll-cue 1.8s ease-in-out infinite; }
 
-.brain-hotspot-label { width: max-content; max-width: 210px; opacity: 0; filter: drop-shadow(0 6px 18px rgba(0, 5, 18, .9)); transition: opacity .12s linear; }
-.brain-hotspot-label.is-right { transform-origin: right center; text-align: right; }
-.brain-hotspot-label.is-left { transform-origin: left center; text-align: left; }
-.brain-hotspot-label strong { display: block; color: #f1fcff; font-family: var(--font-space-grotesk), sans-serif; font-size: 16px; font-weight: 680; line-height: 1.2; }
-.brain-hotspot-label small { display: block; margin-top: 4px; color: #a7d8eb; font-size: 12px; line-height: 1.35; }
+/*
+  Los cuatro conceptos, anclados al mundo 3D.
+
+  Ni tarjeta ni panel: un conector corto que sale del nodo luminoso, un título y
+  una línea de apoyo. La información acompaña al sujeto en vez de competir con
+  él, que es justo lo que hacía la ficha grande que ocupaba este sitio.
+
+  El desplazamiento horizontal lo escribe la escena junto con la opacidad —las
+  etiquetas de la izquierda se corren un -100 % para crecer hacia fuera y no
+  hacia el cerebro—, así que aquí no hay `transform`: lo pisaría.
+*/
+.concept-tag {
+  position: relative;
+  width: max-content;
+  max-width: 232px;
+  /*
+    Chip compacto, no tarjeta.
+
+    Sin fondo, el texto caía sobre una cordillera azul de luminosidad muy
+    parecida y desaparecía. Un velo oscuro de dos líneas de alto le devuelve el
+    contraste sin convertirlo en un panel: sigue siendo una etiqueta pegada a su
+    nodo, que es lo que pide la dirección.
+  */
+  padding: 10px 15px;
+  border: 1px solid rgba(99, 231, 255, .52);
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(4, 22, 43, .94), rgba(2, 10, 23, .88));
+  box-shadow: 0 14px 38px rgba(0, 4, 18, .72), 0 0 26px rgba(24, 191, 255, .12);
+  backdrop-filter: blur(9px);
+  opacity: 0;
+  transition: opacity .1s linear;
+  pointer-events: none;
+}
+.concept-tag.is-left { text-align: right; }
+.concept-tag.is-right { text-align: left; }
+.concept-tag strong {
+  display: block;
+  color: #f4feff;
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 690;
+  letter-spacing: -.005em;
+  line-height: 1.18;
+  text-shadow: 0 0 18px rgba(0, 150, 235, .5);
+}
+.concept-tag small {
+  display: block;
+  margin-top: 4px;
+  color: #d2eff9;
+  font-size: 12.5px;
+  line-height: 1.35;
+}
+/* Conector corto: sale del borde de la etiqueta hacia el nodo. */
+.concept-tag i {
+  position: absolute;
+  top: 8px;
+  width: 24px;
+  height: 1px;
+  box-shadow: 0 0 8px rgba(60, 220, 255, .75);
+}
+.concept-tag i { top: 18px; }
+.concept-tag.is-left i { right: -26px; background: linear-gradient(90deg, #56e2ff, transparent); }
+.concept-tag.is-right i { left: -26px; background: linear-gradient(90deg, transparent, #56e2ff); }
 
 .nav-shell { transform-style: preserve-3d; perspective: 900px; }
 .nav-brand, .nav-depth-link { transform: translateZ(0); transition: transform .24s ease, color .24s ease, background-color .24s ease, box-shadow .24s ease; }
@@ -640,7 +704,7 @@
   z-index: 22;
   top: 50%;
   left: 50%;
-  width: var(--hero-shell);
+  width: min(calc(100% - 8rem), 1160px);
   transform: translate(-50%, -50%);
   pointer-events: none;
 }
@@ -667,29 +731,138 @@
 .metric-copy small { margin-top: 7px; color: #8fc9dc; font-size: 12px; line-height: 1.35; }
 .pillars-sweep { position: absolute; z-index: 2; left: 2%; right: 2%; bottom: 0; height: 1px; transform: scaleX(0); transform-origin: left; background: linear-gradient(90deg, transparent, #36dfff 15%, #36dfff 85%, transparent); box-shadow: 0 0 10px rgba(0, 218, 255, .5); pointer-events: none; }
 
-.hero-institutional { position: relative; z-index: 1; margin: 0 auto; }
+/*
+  Dos paneles flotando, no una franja.
+
+  La perspectiva vive aquí para que los dos giros de entrada compartan punto de
+  fuga: si cada tarjeta llevara el suyo, entrarían como dos animaciones sueltas
+  que casualmente ocurren a la vez en vez de como una sola composición.
+*/
+.hero-institutional { position: relative; z-index: 1; margin: 0 auto; perspective: 1400px; }
 .hero-institutional .institutional-wrap { padding: 0; background: transparent; }
+/* El marco común desaparece: con las mitades girando en 3D, un borde que las
+   abarque a las dos se rompe en cuanto empieza el movimiento. */
+.hero-institutional .institutional-strip { border: 0; background: transparent; box-shadow: none; }
 .institutional-wrap { position: relative; z-index: 2; margin-top: -1px; padding: 18px 0 30px; background: transparent; }
 .institutional-grid { position: absolute; inset: 18px 0 30px; border-radius: 18px; opacity: .18; background-image: linear-gradient(rgba(56, 193, 255, .09) 1px, transparent 1px), linear-gradient(90deg, rgba(56, 193, 255, .09) 1px, transparent 1px); background-size: 34px 34px; mask-image: radial-gradient(ellipse at center, #000 0, transparent 78%); }
-.institutional-strip { position: relative; display: grid; grid-template-columns: 1fr 120px 1fr; width: min(100%, 1180px); min-height: 142px; margin: auto; overflow: visible; border-block: 1px solid rgba(78, 208, 255, .2); background: linear-gradient(90deg, transparent, rgba(4, 25, 48, .52) 14%, rgba(4, 25, 48, .52) 86%, transparent); box-shadow: 0 24px 80px rgba(0,0,0,.22); }
-.institutional-card { display: flex; align-items: center; gap: 22px; min-width: 0; padding: 18px 30px; }
-.hero-institutional .institutional-card { background: linear-gradient(90deg, rgba(2, 15, 30, .48), rgba(3, 24, 45, .24)); }
+/*
+  Tres columnas, y la del medio es ancha a propósito.
+
+  La composición que pide la dirección es UTEQ · cerebro · Olbrox: el sujeto
+  tiene que seguir viéndose entre los dos paneles, no quedar tapado por ellos.
+  Con 320 px de hueco en 1920 se ve la franja central del cerebro, y cada panel
+  se queda en un 28 % del ancho de pantalla.
+*/
+.institutional-strip { position: relative; display: grid; grid-template-columns: minmax(0, 390px) minmax(250px, 1fr) minmax(0, 390px); gap: 20px; width: 100%; min-height: 158px; margin: auto; overflow: visible; background: transparent; }
+.institutional-card { position: relative; display: flex; align-items: center; gap: 18px; min-width: 0; padding: 20px 24px; }
+.hero-institutional .institutional-card {
+  overflow: hidden;
+  border: 1px solid rgba(78, 208, 255, .26);
+  border-radius: 20px;
+  background: linear-gradient(135deg, rgba(7, 35, 66, .72), rgba(2, 13, 28, .58));
+  box-shadow: 0 26px 76px -34px rgba(0, 0, 0, .88), 0 0 50px -30px rgba(0, 168, 255, .48), inset 0 1px 0 rgba(150, 225, 255, .14);
+  backdrop-filter: blur(13px);
+  transform-style: preserve-3d;
+  /* La flotación va en `translate`, no en `transform`: GSAP es dueño de
+     `transform` durante la entrada y las dos propiedades se componen sin
+     pisarse. Mezclarlas obligaría a reescribir la matriz completa cada frame. */
+  animation: institutional-float 7s ease-in-out infinite;
+  will-change: transform, translate;
+}
+.hero-institutional .developer-card { animation-delay: -3.5s; }
+
+@keyframes institutional-float {
+  0%, 100% { translate: 0 0; }
+  50% { translate: 0 -9px; }
+}
+
+/* Barrido de luz: cruza el panel una vez, cuando ya se ha montado. */
+.institutional-sweep {
+  position: absolute;
+  z-index: 3;
+  inset: -40% -20%;
+  width: 22%;
+  opacity: 0;
+  transform: rotate(14deg);
+  background: linear-gradient(90deg, transparent, rgba(140, 232, 255, .3), rgba(226, 250, 255, .72), rgba(140, 232, 255, .3), transparent);
+  filter: blur(5px);
+  pointer-events: none;
+}
+/*
+  Esquinas de encuadre. Es lo que convierte dos tarjetas planas en dos paneles
+  de un instrumento: el bloque llega justo cuando la cámara sale del cerebro y
+  tiene que sostener el mismo lenguaje que la escena que acaba de dejar.
+*/
+.hero-institutional .institutional-card::before,
+.hero-institutional .institutional-card::after {
+  content: '';
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border: 1px solid rgba(85, 224, 255, .5);
+  pointer-events: none;
+}
+.hero-institutional .institutional-card::before { top: 12px; left: 12px; border-right: 0; border-bottom: 0; border-top-left-radius: 8px; }
+.hero-institutional .institutional-card::after { right: 12px; bottom: 12px; border-top: 0; border-left: 0; border-bottom-right-radius: 8px; }
 .hero-institutional .developer-content { position: relative; z-index: 2; }
-.institutional-card h2 { margin-top: 8px; color: #f7faff; font-family: var(--font-space-grotesk); font-size: 18px; font-weight: 650; line-height: 1.28; text-transform: uppercase; }
-.institutional-card p { max-width: 290px; margin-top: 8px; color: #b9c9dc; font-size: 13px; line-height: 1.55; }
+.institutional-card h2 { margin-top: 6px; color: #f7faff; font-family: var(--font-space-grotesk); font-size: 18px; font-weight: 650; line-height: 1.24; text-transform: uppercase; }
+.institutional-card p { max-width: 260px; margin-top: 7px; color: #c5d5e7; font-size: 12px; line-height: 1.48; }
 .eyebrow-small { color: #ecf5ff; font-size: 12px; font-weight: 600; }
 .institutional-role { display: block; margin-top: 7px; color: #47dfff; font-size: 12px; font-weight: 600; }
 .brand-image { display: grid; flex: 0 0 auto; place-items: center; }
-.crest-image { width: 68px; height: 88px; }
-.crest-image img { width: 100%; height: 100%; filter: drop-shadow(0 5px 10px rgba(215, 163, 22, .2)); }
+.crest-image { position: relative; width: 68px; height: 88px; }
+/* Halo propio detrás del escudo: sin él, un PNG con mucho detalle sobre un
+   fondo casi negro se lee como una mancha. */
+.crest-image::after {
+  content: '';
+  position: absolute;
+  /* Cero, no -1: con indice negativo el halo cae por detras del fondo de la
+     tarjeta y solo se intuye a traves de su transparencia. */
+  z-index: 0;
+  inset: -22%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 214, 92, .16), transparent 68%);
+}
+.crest-image img { position: relative; z-index: 1; width: 100%; height: 100%; filter: drop-shadow(0 6px 16px rgba(215, 163, 22, .32)); }
 .developer-card { justify-content: center; text-align: center; }
 .developer-content { display: flex; height: 100%; flex-direction: column; align-items: center; justify-content: center; }
 .developer-content p { margin-top: 2px; }
-.olbrox-image { width: 210px; height: 56px; margin-top: 2px; }
-.olbrox-image img { width: 100%; height: 100%; filter: drop-shadow(0 0 11px rgba(40, 167, 255, .3)); }
+.olbrox-image { position: relative; width: 210px; height: 57px; margin-top: 5px; }
+.olbrox-image::after {
+  content: '';
+  position: absolute;
+  z-index: 0;
+  inset: -30% -14%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(40, 167, 255, .2), transparent 70%);
+}
+.olbrox-image img { position: relative; z-index: 1; width: 100%; height: 100%; filter: drop-shadow(0 0 18px rgba(40, 167, 255, .48)); }
 .institutional-connection { display: flex; align-items: center; align-self: stretch; justify-content: center; gap: 0; }
-.institutional-connection span { width: 88px; height: 1px; transform: scaleX(0); transform-origin: left; background: linear-gradient(90deg, rgba(41, 166, 224, .18), #45e5ff, rgba(41, 166, 224, .18)); box-shadow: 0 0 8px rgba(0, 218, 255, .45); }
-.institutional-connection i { width: 5px; height: 5px; border: 1px solid rgba(107, 231, 255, .8); border-radius: 50%; box-shadow: 0 0 7px rgba(0, 218, 255, .48); }
+/*
+  El enlace entre los dos paneles.
+
+  Cruza justo por delante del hemisferio digital, que es la zona más brillante
+  de la escena: con un pelo de 1 px y opacidad media desaparecía por completo
+  contra él. Necesita grosor, un núcleo blanco y un halo que lo despegue del
+  fondo para que se lea como un cable de datos entre las dos instituciones.
+*/
+.institutional-connection span {
+  width: 100px;
+  height: 2px;
+  transform: scaleX(0);
+  transform-origin: left;
+  border-radius: 2px;
+  background: linear-gradient(90deg, rgba(70, 214, 255, .35), #b9f3ff 45%, #ffffff 50%, #b9f3ff 55%, rgba(70, 214, 255, .35));
+  box-shadow: 0 0 14px rgba(60, 220, 255, .95), 0 0 34px rgba(0, 170, 255, .55);
+}
+.institutional-connection i {
+  width: 9px;
+  height: 9px;
+  border: 1px solid rgba(180, 244, 255, .95);
+  border-radius: 50%;
+  background: radial-gradient(circle, #eafcff 0 35%, rgba(60, 208, 255, .35) 60%, transparent 72%);
+  box-shadow: 0 0 14px rgba(60, 220, 255, .85);
+}
 
 /* ------------------------------------------------- energía y transición */
 
@@ -782,13 +955,39 @@
 }
 .portal-core {
   position: relative;
-  width: clamp(80px, 9vw, 160px);
+  width: clamp(54px, 5vw, 92px);
   aspect-ratio: 1;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(226, 253, 255, .92), rgba(38, 200, 255, .55) 34%, transparent 68%);
-  box-shadow: 0 0 60px rgba(0, 208, 255, .55);
+  border: 1px solid rgba(111, 235, 255, .28);
+  background: radial-gradient(circle, rgba(140, 241, 255, .22), rgba(16, 145, 210, .12) 34%, transparent 69%);
+  box-shadow: 0 0 34px rgba(0, 208, 255, .28), inset 0 0 22px rgba(82, 222, 255, .18);
+  opacity: .64;
   animation: portal-breathe 3.2s ease-in-out infinite alternate;
 }
+
+/* El chrome se apaga durante el cruce interior y vuelve con el reensamble. */
+.nav-shell {
+  transition-property: opacity, background-color, border-color, box-shadow, backdrop-filter;
+}
+.hero-immersive .nav-shell,
+.hero-immersive .side-indicator {
+  opacity: 0 !important;
+  pointer-events: none;
+}
+
+/* El video de depuración conserva únicamente el mundo 3D y sus guías WebGL. */
+.hero-debug-scene .nav-shell,
+.hero-viewport[data-debug-scene='true'] .hero-layout,
+.hero-viewport[data-debug-scene='true'] .hero-data,
+.hero-viewport[data-debug-scene='true'] .hero-portal,
+.hero-viewport[data-debug-scene='true'] .side-indicator,
+.hero-viewport[data-debug-scene='true'] .hero-scroll-cue,
+.hero-viewport[data-debug-scene='true'] .hero-vignette,
+.hero-viewport[data-debug-scene='true'] .hero-veil {
+  display: none !important;
+}
+.hero-portal-label { bottom: 8vh; text-shadow: 0 0 28px rgba(43, 218, 255, .48); }
+.hero-portal-label::before { content: ''; width: 72px; height: 1px; margin-bottom: 8px; background: linear-gradient(90deg, transparent, #81efff, transparent); box-shadow: 0 0 12px rgba(65, 224, 255, .7); }
 
 @keyframes neural-travel { 0%, 58%, 100% { opacity: 0; stroke-dashoffset: 0; } 64% { opacity: .18; } 74% { opacity: .9; } 88% { opacity: 0; stroke-dashoffset: -138; } }
 @keyframes cine-drift {
@@ -884,6 +1083,8 @@
   .metric-icon { flex-basis: 44px; width: 44px; height: 44px; }
   .metric-icon svg { width: 22px; height: 22px; }
   .institutional-card { padding: 22px; }
+  .institutional-strip { grid-template-columns: 1fr 210px 1fr; min-height: 160px; }
+  .olbrox-image { width: 232px; height: 63px; }
 }
 
 @media (max-height: 900px) and (min-width: 901px) {
@@ -894,8 +1095,8 @@
   .hero-actions { margin-top: 18px; }
   .hero-cta { min-height: 50px; }
   .metrics-panel { min-height: 94px; padding-block: 9px; }
-  .institutional-strip { height: 168px; }
-  .institutional-card { padding: 12px 24px; }
+  .institutional-strip { min-height: 156px; }
+  .institutional-card { padding: 14px 24px; }
   .institutional-card p { margin-top: 5px; line-height: 1.4; }
   .institutional-card a { margin-top: 6px; }
   .crest-image { width: 68px; height: 88px; }
@@ -975,6 +1176,8 @@
   .institutional-wrap { padding-top: 14px; }
   .institutional-card, .developer-card { align-items: center; flex-direction: column; padding: 26px 22px; text-align: center; }
   .institutional-card p { margin-inline: auto; }
+  .crest-image { width: 76px; height: 98px; }
+  .olbrox-image { width: min(232px, 68vw); height: auto; aspect-ratio: 272 / 74; }
 }
 
 @layer base {
@@ -1063,12 +1266,19 @@
      institucional se ancla abajo en lugar de estirar el contenedor. */
   .hero-viewport { --hero-persp: 6000; position: relative; height: 100svh; }
   .hero-data {
+    display: none;
     top: auto;
     bottom: 26px;
     transform: translateX(-50%);
     pointer-events: auto;
   }
   .hero-portal { display: none; }
+  /*
+    Sin coreografía los cuatro conceptos no se encienden nunca: su opacidad la
+    escribe la escena 3D, que con movimiento reducido queda congelada en p=0.
+    Aquí se muestran los cuatro a la vez y quietos.
+  */
+  .concept-tag { opacity: 1 !important; }
   /* Sin la coreografía, `.hero-layout` y `.hero-data` deben fluir en orden. Si
      sólo uno de los dos sale del posicionamiento absoluto, el que queda en el
      flujo se coloca arriba del todo y se superpone a la navegación. */
@@ -1137,3 +1347,30 @@
 }
 .interior-core-label { text-align: center; }
 .interior-core-label strong { font-size: 17px; }
+
+/* Compact institutional identity on phones: two HUD badges, never two slides. */
+@media (max-width: 900px) {
+  .hero-institutional .institutional-wrap { padding: 0 12px; }
+  .hero-institutional .institutional-strip {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 8px;
+    min-height: 0;
+  }
+  .hero-institutional .institutional-connection { display: none; }
+  .hero-institutional .institutional-card,
+  .hero-institutional .developer-card {
+    min-height: 154px;
+    flex-direction: column;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 8px;
+    text-align: center;
+    animation: none;
+  }
+  .hero-institutional .institutional-card p { display: none; }
+  .hero-institutional .institutional-card h2 { margin-top: 3px; font-size: 10px; line-height: 1.24; }
+  .hero-institutional .institutional-role,
+  .hero-institutional .eyebrow-small { margin-top: 3px; font-size: 8px; }
+  .hero-institutional .crest-image { width: 42px; height: 54px; }
+  .hero-institutional .olbrox-image { width: 112px; height: auto; }
+}

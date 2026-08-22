@@ -5,7 +5,7 @@ import sharp from 'sharp'
 /**
  * Hoja de contacto del capítulo.
  *
- * Once fotogramas en una sola imagen. Mirarlos en secuencia es la única forma
+ * Catorce fotogramas en una sola imagen. Mirarlos en secuencia es la única forma
  * de juzgar continuidad —si el cerebro crece o gira, si la niebla cambia de
  * plano, si la luz se mueve—; abriéndolos de uno en uno esas diferencias se
  * pierden entre pestaña y pestaña.
@@ -13,7 +13,7 @@ import sharp from 'sharp'
  *   node scripts/contact-sheet.mjs 1920x1080 1440x900 1366x768
  */
 const SHOTS = path.join(process.cwd(), 'tmp', 'hero-shots')
-const PROGRESS = ['000', '018', '035', '045', '052', '058', '064', '071', '078', '085', '097']
+const PROGRESS = ['000', '008', '015', '022', '030', '036', '043', '048', '054', '060', '066', '072', '078', '084', '090', '095', '100']
 const COLUMNS = 3
 const CELL_WIDTH = 640
 const GAP = 10
@@ -49,7 +49,9 @@ for (const viewport of process.argv.slice(2)) {
     composite.push({
       input: Buffer.from(
         `<svg width="${CELL_WIDTH}" height="${LABEL}"><rect width="100%" height="100%" fill="#0a1626"/>` +
-        `<text x="10" y="21" font-family="monospace" font-size="17" fill="#7fe4ff">p = 0.${entry.p}` +
+        // `entry.p` son las centesimas del progreso ('046' = 0,46). Escribirlo como
+        // `0.${entry.p}` lo dividia otra vez por diez y la hoja rotulaba 0,046.
+        `<text x="10" y="21" font-family="monospace" font-size="17" fill="#7fe4ff">p = ${(Number(entry.p) / 100).toFixed(2)}` +
         `<tspan fill="#4f6f8a">   ·   ${percent} %</tspan></text></svg>`,
       ),
       left,

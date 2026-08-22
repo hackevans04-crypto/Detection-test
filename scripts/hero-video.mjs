@@ -4,63 +4,94 @@ import { execFileSync } from 'node:child_process'
 import { chromium } from '@playwright/test'
 
 /**
- * Vídeo de continuidad del capítulo.
+ * Render determinista del capítulo completo. Cada imagen espera dos frames de
+ * Three.js, por lo que no pierde fases aunque el navegador headless no alcance
+ * tiempo real. Después se codifica a 1080p, 30 fps y diez segundos exactos.
  *
- * No es una grabación en tiempo real: el renderizador por software de este
- * entorno da un fotograma por segundo, así que capturar la pantalla mientras se
- * hace scroll produciría un tirón sin valor diagnóstico. En su lugar se
- * renderiza una rejilla densa de progresos deterministas y se codifica en
- * orden. El resultado recorre exactamente la misma línea de tiempo que el
- * scroll y sirve para lo único que se le pide: ver si los capítulos se
- * distinguen y si algo salta entre uno y otro.
- *
- *   node scripts/hero-video.mjs [fotogramas]
+ *   node scripts/hero-video.mjs [fotogramas fuente]
+ *   HERO_DEBUG=1 node scripts/hero-video.mjs [fotogramas fuente]
  */
 const BASE = process.env.HERO_BASE ?? 'http://localhost:3000'
-const FRAMES = Number(process.argv[2] ?? 96)
-const FPS = 12
-const WIDTH = 1280
-const HEIGHT = 720
-const DIR = path.join(process.cwd(), 'tmp', 'video-frames')
-const OUT = path.join(process.cwd(), 'tmp', 'hero-shots', 'hero-scroll-validation.webm')
+const DEBUG_SCENE = process.env.HERO_DEBUG === '1'
+const DURATION_SECONDS = Number(process.env.HERO_DURATION ?? 10)
+const FRAMES = Number(process.argv[2] ?? process.env.HERO_FRAMES ?? (DEBUG_SCENE ? 72 : 120))
+const SOURCE_FPS = FRAMES / DURATION_SECONDS
+const WIDTH = 1920
+const HEIGHT = 1080
+const FRAME_EXTENSION = process.env.HERO_FRAME_FORMAT === 'png' ? 'png' : 'jpg'
+const FRAME_DIR = path.join(process.cwd(), 'tmp', DEBUG_SCENE ? 'video-frames-debug' : 'video-frames-final')
+const OUT = path.join(
+  process.cwd(),
+  'tmp',
+  'hero-shots',
+  DEBUG_SCENE ? 'immersive-brain-debug.webm' : 'immersive-brain-journey.webm',
+)
 
-fs.rmSync(DIR, { recursive: true, force: true })
-fs.mkdirSync(DIR, { recursive: true })
+if (!Number.isFinite(FRAMES) || FRAMES < 12) throw new Error('Se requieren al menos 12 fotogramas fuente.')
+fs.rmSync(FRAME_DIR, { recursive: true, force: true })
+fs.mkdirSync(FRAME_DIR, { recursive: true })
+fs.mkdirSync(path.dirname(OUT), { recursive: true })
 
-const browser = await chromium.launch({
-  args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'],
-})
+const renderer = process.env.HERO_RENDERER ?? (process.platform === 'win32' ? 'd3d11' : 'swiftshader')
+const rendererArgs = renderer === 'swiftshader'
+  ? ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--disable-lcd-text']
+  : ['--use-gl=angle', '--use-angle=d3d11', '--enable-gpu', '--ignore-gpu-blocklist', '--disable-lcd-text']
+
+const browser = await chromium.launch({ args: rendererArgs })
 const page = await browser.newPage({ viewport: { width: WIDTH, height: HEIGHT }, deviceScaleFactor: 1 })
+const browserProblems = []
+page.on('console', (message) => {
+  if (message.type() === 'error') browserProblems.push(`consola: ${message.text()}`)
+})
+page.on('pageerror', (error) => browserProblems.push(`excepción: ${error.message}`))
 page.setDefaultTimeout(240_000)
-await page.goto(`${BASE}/?heroTest=1&p=0`, { waitUntil: 'domcontentloaded' })
+page.setDefaultNavigationTimeout(240_000)
+
+await page.goto(`${BASE}/?heroTest=1&p=0${DEBUG_SCENE ? '&heroDebugScene=1' : ''}`, { waitUntil: 'domcontentloaded' })
 await page.waitForSelector('.hero-canvas canvas')
 await page.waitForFunction('window.__heroReady === true')
+await page.evaluate(() => document.fonts.ready)
 
 const started = Date.now()
-for (let i = 0; i < FRAMES; i++) {
-  const p = i / (FRAMES - 1)
-  await page.evaluate((v) => window.__heroSetProgress(v), p)
-  // Basta un margen corto: el amortiguado converge y el reloj está congelado,
-  // así que cada fotograma es el estado estable de su progreso.
-  await page.waitForTimeout(420)
+console.log(`Renderizando ${DEBUG_SCENE ? 'prueba técnica' : 'película final'} · ${FRAMES} frames fuente · ${WIDTH}x${HEIGHT}`)
+for (let index = 0; index < FRAMES; index += 1) {
+  const time = index / Math.max(FRAMES - 1, 1)
+  // 350 ms de lectura al abrir y cerrar, sin sacrificar ninguna fase central.
+  const progress = time <= 0.035 ? 0 : time >= 0.965 ? 1 : (time - 0.035) / 0.93
+  await page.evaluate((value) => window.__heroSetProgress(value), progress)
+  await page.evaluate(() => new Promise((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(resolve))
+  }))
   await page.screenshot({
-    path: path.join(DIR, `f${String(i).padStart(4, '0')}.png`),
+    path: path.join(FRAME_DIR, `f${String(index).padStart(4, '0')}.${FRAME_EXTENSION}`),
     timeout: 240_000,
     animations: 'disabled',
+    caret: 'hide',
+    ...(FRAME_EXTENSION === 'jpg' ? { type: 'jpeg', quality: 94 } : {}),
   })
-  if (i % 12 === 0) {
+  if (index % 12 === 0 || index === FRAMES - 1) {
     const elapsed = (Date.now() - started) / 1000
-    console.log(`  ${i}/${FRAMES}  p=${p.toFixed(3)}  ${elapsed.toFixed(0)} s`)
+    console.log(`  ${String(index + 1).padStart(3)}/${FRAMES} · p=${progress.toFixed(3)} · ${elapsed.toFixed(0)} s`)
   }
 }
 await browser.close()
 
-fs.mkdirSync(path.dirname(OUT), { recursive: true })
+if (browserProblems.length) throw new Error([...new Set(browserProblems)].join('\n'))
+
 execFileSync('ffmpeg', [
-  '-y', '-framerate', String(FPS), '-i', path.join(DIR, 'f%04d.png'),
-  '-c:v', 'libvpx-vp9', '-b:v', '0', '-crf', '32', '-pix_fmt', 'yuv420p',
-  OUT,
+  '-y', '-framerate', String(SOURCE_FPS), '-i', path.join(FRAME_DIR, `f%04d.${FRAME_EXTENSION}`),
+  '-vf', `fps=30,scale=${WIDTH}:${HEIGHT}:flags=lanczos`,
+  '-fps_mode', 'cfr', '-r', '30',
+  '-c:v', 'libvpx-vp9', '-b:v', '0', '-crf', '29', '-deadline', 'good', '-cpu-used', '4',
+  '-pix_fmt', 'yuv420p', '-an', OUT,
 ], { stdio: ['ignore', 'ignore', 'pipe'] })
 
-const mb = fs.statSync(OUT).size / 1024 / 1024
-console.log(`\n✓ ${path.relative(process.cwd(), OUT)}  ${FRAMES} fotogramas · ${(FRAMES / FPS).toFixed(1)} s · ${mb.toFixed(2)} MB`)
+const finalProbe = JSON.parse(execFileSync('ffprobe', [
+  '-v', 'error', '-select_streams', 'v:0',
+  '-show_entries', 'stream=width,height,avg_frame_rate,nb_frames:format=duration,size',
+  '-of', 'json', OUT,
+], { encoding: 'utf8' }))
+const stream = finalProbe.streams?.[0] ?? {}
+const mb = Number(finalProbe.format?.size ?? 0) / 1024 / 1024
+console.log(`✓ ${path.relative(process.cwd(), OUT)}`)
+console.log(`  ${stream.width}x${stream.height} · ${stream.avg_frame_rate} fps · ${Number(finalProbe.format?.duration).toFixed(2)} s · ${mb.toFixed(2)} MB`)

@@ -1,5 +1,6 @@
 import * as THREE from 'three'
-import { CAMERA_ORBIT, CAMERA_TARGET, WORLD_Z, frameStage, STAGE_FOV } from '../lib/hero/stage.ts'
+import { WORLD_Z, frameStage, STAGE_FOV } from '../lib/hero/stage.ts'
+import { createHeroDirectorFrame, createHeroRail, heroEntryTravel, resolveHeroDirector } from '../lib/hero/director.ts'
 
 /**
  * Comprueba la ley de parallax sin renderizar nada.
@@ -13,35 +14,37 @@ import { CAMERA_ORBIT, CAMERA_TARGET, WORLD_Z, frameStage, STAGE_FOV } from '../
  */
 const WIDTH = 1920
 const HEIGHT = 1080
-const FROM = Number(process.argv[2] ?? 0.2)
-const TO = Number(process.argv[3] ?? 0.45)
+/*
+  Ventana por defecto: 0,18 -> 0,28.
+
+  Es el tramo exterior que va de UNLOCK a DISASSEMBLY. La entrada real empieza
+  en 0,43; medirla como si fuera una órbita daría un falso fallo porque allí la
+  cámara cruza deliberadamente el cerebro.
+*/
+const FROM = Number(process.argv[2] ?? 0.18)
+const TO = Number(process.argv[3] ?? 0.28)
 
 const framing = frameStage(WIDTH, HEIGHT)
-const radius = 1.936 // R medido en runtime para brain-organic-digital
+/*
+  R del cerebro en unidades de mundo.
 
-const clamp01 = (v) => Math.max(0, Math.min(1, v))
-const rangeAt = (v, from, to) => clamp01((v - from) / Math.max(to - from, 1e-4))
+  Sale de medir el GLB igual que `measureActor`: la esfera envolvente de
+  `brain-organic-digital` tiene radio 0,538 en el espacio del modelo y la altura
+  del modelo es 0,9774, así que la escala que lo lleva a BRAIN_WORLD_HEIGHT
+  (2,2) es 2,2518 y el radio resultante 1,2115. El 1,936 que había aquí era el
+  radio de la esquina de la caja, no el de la esfera que three calcula.
+*/
+const radius = 1.2115
+
+const rail = createHeroRail(framing, radius)
 
 /** Réplica exacta del rig de `CameraRig`, incluida la recentrada lateral. */
 function cameraAt(p) {
-  const orbit = CAMERA_ORBIT.getPoint(p, new THREE.Vector3())
-  const offset = CAMERA_TARGET.getPoint(p, new THREE.Vector3())
-  const azimuth = THREE.MathUtils.degToRad(orbit.x)
-  const elevation = THREE.MathUtils.degToRad(orbit.y)
-  const distance = framing.distance * orbit.z
-  const flat = Math.cos(elevation) * distance
+  const frame = createHeroDirectorFrame()
+  resolveHeroDirector(p, rail, radius, frame)
   const camera = new THREE.PerspectiveCamera(STAGE_FOV, WIDTH / HEIGHT, 0.5, 160)
-  camera.position.set(
-    framing.stageX + Math.sin(azimuth) * flat,
-    framing.lookAtY + Math.sin(elevation) * distance,
-    Math.cos(azimuth) * flat,
-  )
-  const offCentre = framing.lookAtX * (1 - rangeAt(p, 0.18, 0.33))
-  camera.lookAt(
-    framing.stageX + offCentre + offset.x * radius,
-    framing.lookAtY + offset.y * radius,
-    offset.z * radius,
-  )
+  camera.position.fromArray(frame.cameraPosition)
+  camera.lookAt(new THREE.Vector3().fromArray(frame.cameraLookAt))
   camera.updateMatrixWorld(true)
   camera.updateProjectionMatrix()
   return camera
@@ -81,44 +84,57 @@ for (const r of results) {
 }
 
 /**
- * La ley correcta para una cámara que orbita.
- *
- * El enunciado habitual —«cuanto más cerca, más recorrido»— describe una cámara
- * que traslada. Aquí la cámara gira alrededor del cerebro manteniéndolo
- * encuadrado, así que el sujeto es el punto casi inmóvil y el recorrido crece
- * al alejarse de él en cualquiera de los dos sentidos: el fondo barre por
- * detrás y el primer plano cruza por delante, más deprisa todavía.
+ * Diagnóstico de separación entre planos. En esta versión la cámara hace un
+ * dolly dirigido y después atraviesa el sujeto, así que no se exige una órbita
+ * monótona: un plano puede cruzar su punto de fuga y recorrer menos píxeles que
+ * su vecino aunque exista profundidad real.
  */
 const pivot = results.find((r) => r.z === WORLD_Z.stage)
 const behind = results.filter((r) => r.z < 0).sort((x, y) => y.z - x.z)
 const front = results.filter((r) => r.z > 0).sort((x, y) => x.z - y.z)
 const problems = []
+const diagnostics = []
 
 const monotonic = (list, label) => {
   let previous = pivot.shift
   for (const layer of list) {
-    if (layer.shift <= previous) problems.push(`${label}: ${layer.name} (${layer.shift.toFixed(1)} px) no supera a la capa anterior (${previous.toFixed(1)} px)`)
+    if (layer.shift <= previous) diagnostics.push(`${label}: ${layer.name} cruza el punto de fuga (${layer.shift.toFixed(1)} px frente a ${previous.toFixed(1)} px)`)
     previous = layer.shift
   }
 }
 monotonic(behind, 'fondo')
 monotonic(front, 'primer plano')
 
-// El fallo que de verdad importa: que dos capas se muevan casi igual.
+// Sólo falla si todas las capas se comportan casi como un plano único.
 const spread = max / Math.max(pivot.shift, 0.01)
-if (pivot.shift > 40) problems.push(`el escenario se desplaza ${pivot.shift.toFixed(1)} px: la cámara no lo mantiene encuadrado`)
-if (spread < 8) problems.push(`recorrido cerca/lejos sólo ${spread.toFixed(1)}:1; las capas se mueven demasiado parecido`)
+if (pivot.shift > 40) diagnostics.push(`el encuadre dirigido desplaza el sujeto ${pivot.shift.toFixed(1)} px`)
+if (spread < 4) problems.push(`recorrido cerca/lejos sólo ${spread.toFixed(1)}:1; las capas se mueven demasiado parecido`)
+
+// La prueba decisiva de la nueva película: no basta con acercar el FOV. Entre
+// ENTRY e INFORMATION la cámara debe cambiar X/Y/Z y cruzar el plano del cerebro.
+const entry = heroEntryTravel(framing, radius)
+const deltaR = entry.delta.map((value) => Math.abs(value) / radius)
+if (deltaR[0] < 0.08) problems.push(`ENTRY apenas cambia X (${deltaR[0].toFixed(2)}R)`)
+if (deltaR[1] < 0.08) problems.push(`ENTRY apenas cambia Y (${deltaR[1].toFixed(2)}R)`)
+if (deltaR[2] < 2.5) problems.push(`ENTRY apenas cambia Z (${deltaR[2].toFixed(2)}R)`)
+if (!(entry.from[2] > 0 && entry.to[2] < 0)) problems.push('ENTRY no cruza del exterior al interior del cerebro')
 
 console.log('')
 console.log(`Sujeto encuadrado: ${pivot.shift.toFixed(1)} px`)
 console.log(`Barrido máximo:    ${max.toFixed(1)} px (${front.at(-1).name})`)
 console.log(`Relación:          ${spread.toFixed(1)}:1`)
+console.log(`Viaje ENTRY XYZ:   Δ(${entry.delta.map((value) => value.toFixed(2)).join(', ')}) · ${entry.distanceR.toFixed(2)}R`)
 console.log('')
+if (diagnostics.length) {
+  console.log('Notas del encuadre dirigido:')
+  for (const diagnostic of diagnostics) console.log(`  - ${diagnostic}`)
+  console.log('')
+}
 if (problems.length) {
-  console.log('Ley de parallax INCUMPLIDA:')
+  console.log('PRUEBA ESPACIAL INCUMPLIDA:')
   for (const problem of problems) console.log(`  - ${problem}`)
 } else {
-  console.log('Ley de parallax CUMPLIDA: el sujeto permanece, cada capa recorre lo que le toca por su distancia.')
+  console.log('PRUEBA ESPACIAL CUMPLIDA: hay separación de planos y ENTRY cruza el cerebro en X/Y/Z.')
 }
 process.exitCode = problems.length ? 1 : 0
 
@@ -139,11 +155,11 @@ const MARKERS = [
   ['FogFront', new THREE.Vector3(framing.stageX - 1, -0.4, WORLD_Z.fogFrontLeft)],
   ['LensParticle', new THREE.Vector3(framing.stageX - 0.6, -0.2, WORLD_Z.lensParticles)],
 ]
-const STEPS = [0.0, 0.35, 0.45]
+const STEPS = [0.0, 0.28, 0.56]
 const cameras = STEPS.map(cameraAt)
 
 console.log('\n--- coordenadas de pantalla por actor ---')
-console.log('actor'.padEnd(14) + STEPS.map((s) => `p=${s}`.padStart(16)).join('') + '   Δ 0.35→0.45')
+console.log('actor'.padEnd(14) + STEPS.map((s) => `p=${s}`.padStart(16)).join('') + '   Δ 0.28→0.56')
 for (const [name, point] of MARKERS) {
   const xy = cameras.map((camera) => project(camera, point))
   const cells = xy.map((v) => `(${Math.round(v.x)},${Math.round(v.y)})`.padStart(16)).join('')
@@ -153,5 +169,5 @@ for (const [name, point] of MARKERS) {
 const brain = MARKERS[0][1]
 const brainXY = cameras.map((camera) => project(camera, brain))
 
-console.log(`\nDeriva del sujeto entre 0.35 y 0.45 (órbita pura): ${brainXY[1].distanceTo(brainXY[2]).toFixed(0)} px`)
+console.log(`\nRecorrido del sujeto entre DISASSEMBLY e INNER_FLIGHT: ${brainXY[1].distanceTo(brainXY[2]).toFixed(0)} px`)
 console.log(brainXY.map((v, i) => `  p=${STEPS[i]}  x=${Math.round(v.x)} (${(v.x / WIDTH * 100).toFixed(0)} % del ancho)`).join('\n'))
