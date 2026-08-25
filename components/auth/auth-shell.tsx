@@ -19,7 +19,8 @@ import {
 } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+import { useSelectListbox } from '@/components/ui/use-select-listbox'
 
 type AuthMode = 'login' | 'register'
 
@@ -30,6 +31,73 @@ const profiles = [
   'Coordinador/a académico',
   'Investigador/a',
 ]
+
+/**
+ * Perfil profesional.
+ *
+ * Comparte comportamiento con el desplegable de la plataforma —`useSelectListbox`—
+ * pero se viste con la paleta oscura del registro. La lista nativa del sistema
+ * rompía el tema aquí igual que allí.
+ */
+function ProfileSelect() {
+  const [value, setValue] = useState('')
+  const placeholder = 'Selecciona tu perfil profesional'
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const listRef = useRef<HTMLUListElement>(null)
+  const select = useSelectListbox({ id: 'profile', value, onChange: setValue, options: profiles, placeholder, wrapRef, listRef })
+
+  return (
+    <div className="auth-field auth-field-full">
+      <span id="profile-label">Perfil profesional</span>
+      <div className="auth-input-wrap auth-selectbox" ref={wrapRef}>
+        <UsersRound className="auth-input-icon" />
+        <button
+          type="button"
+          id="profile"
+          className="auth-select-trigger"
+          role="combobox"
+          aria-haspopup="listbox"
+          aria-expanded={select.open}
+          aria-controls={select.listId}
+          aria-activedescendant={select.activeOptionId}
+          aria-labelledby="profile-label profile"
+          onClick={select.toggle}
+          onKeyDown={select.onKeyDown}
+        >
+          <span data-placeholder={value === ''}>{select.selected?.label}</span>
+        </button>
+        <ChevronDown className="auth-select-icon size-4" aria-hidden="true" />
+
+        {select.open ? (
+          <ul
+            id={select.listId}
+            role="listbox"
+            ref={listRef}
+            className="auth-listbox"
+            aria-labelledby="profile-label"
+            data-drop={select.dropUp ? 'up' : 'down'}
+          >
+            {select.entries.map((entry, index) => (
+              <li
+                key={entry.value || 'placeholder'}
+                id={select.optionId(index)}
+                role="option"
+                className="auth-listbox-option"
+                data-active={index === select.activeIndex}
+                data-placeholder={entry.value === ''}
+                aria-selected={index === select.selectedIndex}
+                onMouseEnter={() => select.setActiveIndex(index)}
+                onClick={() => select.commit(index)}
+              >
+                {entry.label}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </div>
+    </div>
+  )
+}
 
 function BrandHeader() {
   return (
@@ -201,21 +269,7 @@ function RegisterForm() {
         </label>
       </div>
 
-      <label className="auth-field auth-field-full" htmlFor="profile">
-        <span>Perfil profesional</span>
-        <div className="auth-input-wrap">
-          <UsersRound className="auth-input-icon" />
-          <select id="profile" defaultValue="">
-            <option value="" disabled>
-              Selecciona tu perfil profesional
-            </option>
-            {profiles.map((profile) => (
-              <option key={profile}>{profile}</option>
-            ))}
-          </select>
-          <ChevronDown className="auth-select-icon size-4" />
-        </div>
-      </label>
+      <ProfileSelect />
 
       <div className="auth-form-grid">
         <Field

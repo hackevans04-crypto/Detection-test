@@ -1,0 +1,4374 @@
+/*
+ * Sistema visual de la plataforma.
+ *
+ * El landing vive en tema oscuro y marca `color-scheme: dark` en :root. La
+ * plataforma es lo contrario: institucional,
+clara y sin adornos. En vez de
+ * pelearse con los tokens globales,
+todo lo de aquí cuelga de `.dt`,
+que
+ * redefine el color-scheme y su propia paleta. Nada de esto se filtra al
+ * landing y nada del landing entra aquí.
+ */
+
+.dt {
+  color-scheme: light;
+
+  --dt-bg: #f7f9fc;
+  --dt-surface: #ffffff;
+  --dt-surface-muted: #fbfcfe;
+
+  --dt-navy: #071e41;
+  --dt-navy-deep: #061a38;
+  --dt-navy-soft: #123c78;
+
+  --dt-primary: #1463ff;
+  --dt-primary-strong: #0f4fd8;
+  --dt-primary-soft: #e9f0ff;
+  --dt-primary-tint: #f2f6ff;
+
+  --dt-cyan: #13c8ff;
+
+  --dt-success: #0f9d63;
+  --dt-success-soft: #e6f7f0;
+  --dt-warning: #b5730b;
+  --dt-warning-soft: #fdf3e3;
+  --dt-danger: #cf3038;
+  --dt-danger-soft: #fdeced;
+
+  --dt-text: #0d1f3c;
+  --dt-text-soft: #4a5b76;
+  --dt-muted: #6b7c96;
+  --dt-faint: #93a1b8;
+
+  --dt-border: #e4e9f0;
+  --dt-border-strong: #d3dcea;
+
+  --dt-radius-sm: 9px;
+  --dt-radius-md: 12px;
+  --dt-radius-lg: 16px;
+  --dt-radius-card: var(--dt-radius-lg);
+  --dt-radius-control: 11px;
+
+  /* Escala de espacio. Todo el módulo mide con estos pasos, no con números
+     sueltos: es lo que mantiene la densidad constante entre pantallas. */
+  --dt-space-1: 4px;
+  --dt-space-2: 8px;
+  --dt-space-3: 12px;
+  --dt-space-4: 16px;
+  --dt-space-5: 20px;
+  --dt-space-6: 24px;
+  --dt-space-7: 32px;
+  --dt-space-8: 40px;
+
+  --dt-shadow: 0 1px 2px rgba(13, 31, 60, 0.04), 0 1px 3px rgba(13, 31, 60, 0.03);
+  --dt-shadow-raised: 0 4px 16px rgba(13, 31, 60, 0.07);
+
+  min-height: 100svh;
+  background: var(--dt-bg);
+  color: var(--dt-text);
+  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.dt *,
+.dt *::before,
+.dt *::after {
+  box-sizing: border-box;
+}
+
+.dt :focus-visible {
+  outline: 2px solid var(--dt-primary);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* ------------------------------------------------------------------ shell */
+
+.dt-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-height: 100svh;
+}
+
+@media (min-width: 1024px) {
+  .dt-shell {
+    grid-template-columns: var(--dt-sidebar-width, 280px) minmax(0, 1fr);
+    transition: grid-template-columns 0.22s cubic-bezier(0.22, 0.8, 0.28, 1);
+  }
+}
+
+.dt-main {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  min-height: 100svh;
+}
+
+.dt-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #cdd7e5 transparent;
+}
+
+.dt-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.dt-scroll::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: #cdd7e5;
+  background-clip: content-box;
+}
+
+/* ---------------------------------------------------------------- sidebar */
+
+.dt-sidebar {
+  position: sticky;
+  top: 0;
+  display: none;
+  height: 100svh;
+  flex-direction: column;
+  overflow: hidden;
+  /* Degradado muy corto: da profundidad sin convertirse en decoracion. */
+  background: linear-gradient(180deg, #0a2450 0%, var(--dt-navy-deep) 42%, #04122a 100%);
+  color: #eaf2ff;
+}
+
+@media (min-width: 1024px) {
+  .dt-sidebar {
+    display: flex;
+  }
+}
+
+.dt-sidebar-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+.dt-sidebar-brand {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 11px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.dt-sidebar-brand strong {
+  display: block;
+  overflow: hidden;
+  font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
+  font-size: 1.12rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dt-sidebar-brand small {
+  display: block;
+  margin-top: 4px;
+  overflow: hidden;
+  color: #9dc0e6;
+  /* En caja baja cabe entera y se lee mejor que en versalitas apretadas. */
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.005em;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dt-sidebar-toggle {
+  display: grid;
+  height: 34px;
+  width: 34px;
+  flex-shrink: 0;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #b9d5f5;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.dt-sidebar-toggle:hover {
+  background: rgba(255, 255, 255, 0.11);
+  color: #fff;
+}
+
+.dt-sidebar-toggle svg {
+  height: 17px;
+  width: 17px;
+}
+
+.dt-sidebar-nav {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 20px 12px;
+}
+
+.dt-nav-group-title {
+  margin: 0 0 12px;
+  padding-inline: 12px;
+  color: rgba(157, 192, 230, 0.75);
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.dt-nav-item {
+  position: relative;
+  display: flex;
+  min-height: 52px;
+  align-items: center;
+  gap: 12px;
+  overflow: hidden;
+  border-radius: 12px;
+  padding: 8px 12px;
+  color: rgba(234, 242, 255, 0.86);
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.3;
+  text-decoration: none;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.dt-nav-item + .dt-nav-item {
+  margin-top: 6px;
+}
+
+.dt-nav-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.dt-nav-item[aria-current='page'] {
+  background: linear-gradient(135deg, #1a5fd0 0%, #2563eb 100%);
+  color: #fff;
+  font-weight: 600;
+  box-shadow: 0 6px 18px rgba(20, 99, 255, 0.28);
+}
+
+/* El filo cian marca la seccion activa sin depender solo del relleno azul. */
+.dt-nav-item[aria-current='page']::before {
+  position: absolute;
+  content: '';
+  inset-block: 0;
+  left: 0;
+  width: 3px;
+  background: var(--dt-cyan);
+}
+
+.dt-nav-item-icon {
+  display: grid;
+  height: 22px;
+  width: 22px;
+  flex-shrink: 0;
+  place-items: center;
+}
+
+.dt-nav-item-icon svg {
+  height: 19px;
+  width: 19px;
+}
+
+.dt-nav-item > span:last-child {
+  min-width: 0;
+}
+
+.dt-sidebar-foot {
+  border-top: 1px solid rgba(255, 255, 255, 0.09);
+  padding: 12px;
+}
+
+/* Sidebar colapsado: sólo iconos. */
+.dt-sidebar[data-collapsed='true'] .dt-sidebar-brand > span,
+.dt-sidebar[data-collapsed='true'] .dt-nav-group-title,
+.dt-sidebar[data-collapsed='true'] .dt-nav-item > span:last-child {
+  display: none;
+}
+
+.dt-sidebar[data-collapsed='true'] .dt-sidebar-head,
+.dt-sidebar[data-collapsed='true'] .dt-nav-item,
+.dt-sidebar[data-collapsed='true'] .dt-collapse-button {
+  justify-content: center;
+  padding-inline: 0;
+}
+
+/* ------------------------------------------------------- pie del sidebar */
+
+.dt-sidebar-foot {
+  border-top: 1px solid rgba(255, 255, 255, 0.09);
+  padding: 14px 12px;
+}
+
+.dt-collapse-button {
+  display: flex;
+  width: 100%;
+  min-height: 46px;
+  align-items: center;
+  gap: 11px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 0 12px;
+  color: #cfe2f7;
+  font-family: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.dt-collapse-button:hover {
+  background: rgba(255, 255, 255, 0.11);
+  color: #fff;
+}
+
+.dt-collapse-icon {
+  display: grid;
+  height: 22px;
+  width: 22px;
+  flex-shrink: 0;
+  place-items: center;
+}
+
+.dt-collapse-icon svg {
+  height: 15px;
+  width: 15px;
+}
+
+.dt-drawer-close {
+  display: grid;
+  height: 34px;
+  width: 34px;
+  flex-shrink: 0;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #b9d5f5;
+  cursor: pointer;
+}
+
+.dt-drawer-close:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.dt-drawer-close svg {
+  height: 17px;
+  width: 17px;
+}
+
+/* -------------------------------------------------------------- avatares */
+
+.dt-avatar {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--dt-primary-soft);
+  color: var(--dt-primary);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.dt-avatar[data-size='sm'] {
+  height: 32px;
+  width: 32px;
+  font-size: 0.6875rem;
+}
+
+.dt-avatar[data-size='md'] {
+  height: 40px;
+  width: 40px;
+  font-size: 0.8125rem;
+}
+
+.dt-avatar[data-size='lg'] {
+  height: 48px;
+  width: 48px;
+  font-size: 0.9375rem;
+}
+
+/* ------------------------------------------------------- barra superior */
+
+.dt-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid var(--dt-border);
+  background: var(--dt-surface);
+  padding: 14px 20px;
+}
+
+@media (min-width: 768px) {
+  .dt-topbar {
+    padding: 18px 32px;
+  }
+}
+
+.dt-topbar-titles {
+  min-width: 0;
+  flex: 1;
+}
+
+.dt-topbar h1 {
+  margin: 0;
+  font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+}
+
+@media (min-width: 768px) {
+  .dt-topbar h1 {
+    font-size: 1.75rem;
+  }
+}
+
+.dt-topbar p {
+  margin: 6px 0 0;
+  color: var(--dt-muted);
+  font-size: 0.875rem;
+}
+
+.dt-topbar-actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 10px;
+}
+
+.dt-topbar-divider {
+  width: 1px;
+  height: 30px;
+  background: var(--dt-border);
+}
+
+@media (max-width: 767px) {
+  .dt-topbar-divider {
+    display: none;
+  }
+}
+
+.dt-user-menu {
+  position: relative;
+}
+
+.dt-user-trigger {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: transparent;
+  padding: 3px 8px 3px 3px;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.dt-user-trigger:hover {
+  border-color: var(--dt-border);
+  background: var(--dt-surface-muted);
+}
+
+.dt-user-trigger-body {
+  min-width: 0;
+  display: none;
+}
+
+@media (min-width: 900px) {
+  .dt-user-trigger-body {
+    display: block;
+  }
+}
+
+.dt-user-trigger-body strong {
+  display: block;
+  overflow: hidden;
+  color: var(--dt-text);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dt-user-trigger-body small {
+  display: block;
+  overflow: hidden;
+  color: var(--dt-muted);
+  font-size: 0.75rem;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dt-user-caret {
+  height: 16px;
+  width: 16px;
+  flex-shrink: 0;
+  color: var(--dt-faint);
+}
+
+.dt-menu-button {
+  display: grid;
+  height: 40px;
+  width: 40px;
+  place-items: center;
+  border: 1px solid var(--dt-border);
+  border-radius: 10px;
+  background: var(--dt-surface);
+  color: var(--dt-text-soft);
+  cursor: pointer;
+}
+
+@media (min-width: 1024px) {
+  .dt-menu-button {
+    display: none;
+  }
+}
+
+.dt-icon-button {
+  position: relative;
+  display: grid;
+  height: 40px;
+  width: 40px;
+  flex-shrink: 0;
+  place-items: center;
+  border: 1px solid var(--dt-border);
+  border-radius: 10px;
+  background: var(--dt-surface);
+  color: var(--dt-text-soft);
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.dt-icon-button:hover {
+  border-color: var(--dt-border-strong);
+  color: var(--dt-text);
+}
+
+.dt-icon-button svg {
+  height: 18px;
+  width: 18px;
+}
+
+.dt-icon-button-count {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  display: grid;
+  min-width: 19px;
+  height: 19px;
+  place-items: center;
+  border: 2px solid var(--dt-surface);
+  border-radius: 999px;
+  background: var(--dt-danger);
+  padding: 0 4px;
+  color: #fff;
+  font-size: 0.625rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.dt-page {
+  flex: 1;
+  /* `min-width: 0` no es decorativo: sin él la tabla de evaluaciones, que
+     tiene ancho mínimo propio, ensancha el contenedor flex y provoca scroll
+     horizontal en toda la página en lugar de dentro de su propia caja. */
+  min-width: 0;
+  min-height: 0;
+  padding: 22px 20px 40px;
+}
+
+@media (min-width: 768px) {
+  .dt-page {
+    padding: 26px 32px 48px;
+  }
+}
+
+/* --------------------------------------------------------------- drawer */
+
+.dt-drawer-backdrop {
+  position: fixed;
+  z-index: 45;
+  inset: 0;
+  border: 0;
+  background: rgba(7, 30, 65, 0.42);
+  cursor: pointer;
+}
+
+@media (min-width: 1024px) {
+  .dt-drawer-backdrop {
+    display: none;
+  }
+}
+
+.dt-drawer {
+  position: fixed;
+  z-index: 46;
+  inset: 0 auto 0 0;
+  display: flex;
+  width: min(86vw, 300px);
+  flex-direction: column;
+  background: var(--dt-navy-deep);
+  color: #eaf2ff;
+  box-shadow: 16px 0 44px rgba(7, 30, 65, 0.26);
+  transform: translateX(-104%);
+  transition: transform 0.26s cubic-bezier(0.22, 0.8, 0.28, 1);
+}
+
+.dt-drawer[data-open='true'] {
+  transform: translateX(0);
+}
+
+@media (min-width: 1024px) {
+  .dt-drawer {
+    display: none;
+  }
+}
+
+/* ----------------------------------------------------------------- card */
+
+.dt-card {
+  border: 1px solid var(--dt-border);
+  border-radius: var(--dt-radius-card);
+  background: var(--dt-surface);
+  box-shadow: var(--dt-shadow);
+}
+
+.dt-card-pad {
+  padding: 20px;
+}
+
+@media (min-width: 768px) {
+  .dt-card-pad {
+    padding: 24px;
+  }
+}
+
+.dt-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.dt-card-head h2 {
+  margin: 0;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+
+.dt-card-head p {
+  margin: 4px 0 0;
+  color: var(--dt-muted);
+  font-size: 0.8125rem;
+}
+
+.dt-section-link {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 5px;
+  color: var(--dt-primary);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.dt-section-link:hover {
+  text-decoration: underline;
+}
+
+.dt-section-link svg {
+  height: 14px;
+  width: 14px;
+}
+
+/* -------------------------------------------------------------- botones */
+
+.dt-btn {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid transparent;
+  border-radius: var(--dt-radius-control);
+  padding: 0 18px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.dt-btn svg {
+  height: 16px;
+  width: 16px;
+  flex-shrink: 0;
+}
+
+.dt-btn:disabled,
+.dt-btn[aria-disabled='true'] {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.dt-btn-primary {
+  background: var(--dt-primary);
+  color: #fff;
+}
+
+.dt-btn-primary:not(:disabled):hover {
+  background: var(--dt-primary-strong);
+}
+
+.dt-btn-secondary {
+  border-color: var(--dt-border-strong);
+  background: var(--dt-surface);
+  color: var(--dt-text-soft);
+}
+
+.dt-btn-secondary:not(:disabled):hover {
+  border-color: var(--dt-primary);
+  color: var(--dt-primary);
+}
+
+.dt-btn-ghost {
+  background: transparent;
+  color: var(--dt-text-soft);
+}
+
+.dt-btn-ghost:not(:disabled):hover {
+  background: var(--dt-primary-tint);
+  color: var(--dt-primary);
+}
+
+.dt-btn-success {
+  background: var(--dt-success);
+  color: #fff;
+}
+
+.dt-btn-success:not(:disabled):hover {
+  background: #0c8956;
+}
+
+.dt-btn-sm {
+  min-height: 36px;
+  padding: 0 13px;
+  font-size: 0.8125rem;
+}
+
+.dt-btn-block {
+  width: 100%;
+}
+
+/* -------------------------------------------------------------- insignias */
+
+.dt-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.dt-badge svg {
+  height: 12px;
+  width: 12px;
+}
+
+.dt-badge[data-tone='neutral'] {
+  background: #eef2f7;
+  color: var(--dt-text-soft);
+}
+
+.dt-badge[data-tone='primary'] {
+  background: var(--dt-primary-soft);
+  color: var(--dt-primary-strong);
+}
+
+.dt-badge[data-tone='success'] {
+  background: var(--dt-success-soft);
+  color: var(--dt-success);
+}
+
+.dt-badge[data-tone='warning'] {
+  background: var(--dt-warning-soft);
+  color: var(--dt-warning);
+}
+
+.dt-badge[data-tone='danger'] {
+  background: var(--dt-danger-soft);
+  color: var(--dt-danger);
+}
+
+/* -------------------------------------------------------------- progreso */
+
+.dt-progress {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e8edf5;
+}
+
+.dt-progress > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--dt-primary);
+  transition: width 0.3s ease;
+}
+
+.dt-progress[data-tone='success'] > span {
+  background: var(--dt-success);
+}
+
+.dt-progress[data-tone='warning'] > span {
+  background: var(--dt-warning);
+}
+
+/* --------------------------------------------------------------- campos */
+
+/*
+ * `align-content: start` no es un detalle: sin él, un campo con pista o error
+ * hace su fila más alta y el resto de campos de esa fila estiran sus tramos
+ * para rellenarla, así que sus etiquetas y sus cajas quedan a distinta altura
+ * que las vecinas. Anclados arriba, todas las etiquetas y todas las cajas de
+ * una misma fila caen en la misma línea.
+ */
+.dt-field {
+  display: grid;
+  min-width: 0;
+  align-content: start;
+  gap: 7px;
+}
+
+.dt-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--dt-text-soft);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.dt-label em {
+  color: var(--dt-danger);
+  font-style: normal;
+}
+
+.dt-input,
+.dt-textarea,
+.dt-select {
+  width: 100%;
+  /* Un `input` trae un ancho intrínseco de ~20 caracteres y un botón crece con
+     su texto. Sin esto, un valor largo ensancha el control por encima de su
+     celda y se mete encima del campo vecino. */
+  min-width: 0;
+  border: 1px solid var(--dt-border-strong);
+  border-radius: var(--dt-radius-control);
+  background: var(--dt-surface);
+  padding: 0 13px;
+  color: var(--dt-text);
+  font-family: inherit;
+  font-size: 0.875rem;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.dt-input,
+.dt-select {
+  height: 44px;
+}
+
+/*
+ * Desplegable propio.
+ *
+ * El `<select>` nativo delega la lista al sistema operativo, que la pinta con
+ * su tipografía, su azul y sus esquinas: en la misma pantalla convivían dos
+ * lenguajes visuales. La caja es un botón y la lista es nuestra, así que se ve
+ * igual en cualquier equipo.
+ */
+.dt-selectbox {
+  position: relative;
+  min-width: 0;
+}
+
+.dt-select {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-right: 11px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dt-select:hover {
+  border-color: var(--dt-primary);
+}
+
+.dt-select[aria-expanded='true'] {
+  border-color: var(--dt-primary);
+  box-shadow: 0 0 0 3px rgba(20, 99, 255, 0.12);
+}
+
+.dt-select-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dt-select-value[data-placeholder='true'] {
+  color: var(--dt-faint);
+}
+
+.dt-select-caret {
+  height: 16px;
+  width: 16px;
+  flex-shrink: 0;
+  color: var(--dt-muted);
+  transition: transform 0.15s ease;
+}
+
+.dt-select[aria-expanded='true'] .dt-select-caret {
+  transform: rotate(180deg);
+  color: var(--dt-primary);
+}
+
+.dt-listbox {
+  position: absolute;
+  z-index: 30;
+  left: 0;
+  right: 0;
+  max-height: 264px;
+  overflow-y: auto;
+  margin: 0;
+  border: 1px solid var(--dt-border);
+  border-radius: var(--dt-radius-md);
+  background: var(--dt-surface);
+  padding: 5px;
+  list-style: none;
+  box-shadow: 0 12px 32px rgba(13, 31, 60, 0.14);
+}
+
+.dt-listbox[data-drop='down'] {
+  top: calc(100% + 6px);
+}
+
+.dt-listbox[data-drop='up'] {
+  bottom: calc(100% + 6px);
+}
+
+.dt-listbox-option {
+  display: flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-radius: var(--dt-radius-sm);
+  padding: 8px 11px;
+  color: var(--dt-text);
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.dt-listbox-option[data-placeholder='true'] {
+  color: var(--dt-faint);
+}
+
+/* El resaltado sigue al teclado y al ratón por igual: es la misma «opción
+   activa», se haya llegado con flechas o con el puntero. */
+.dt-listbox-option[data-active='true'] {
+  background: var(--dt-primary-soft);
+  color: var(--dt-primary-strong);
+}
+
+.dt-listbox-option[aria-selected='true'] {
+  font-weight: 700;
+}
+
+.dt-listbox-option svg {
+  height: 15px;
+  width: 15px;
+  flex-shrink: 0;
+  color: var(--dt-primary);
+}
+
+.dt-textarea {
+  min-height: 88px;
+  padding: 11px 13px;
+  line-height: 1.55;
+  resize: vertical;
+}
+
+.dt-input::placeholder,
+.dt-textarea::placeholder {
+  color: var(--dt-faint);
+}
+
+.dt-input:focus,
+.dt-textarea:focus,
+.dt-select:focus {
+  border-color: var(--dt-primary);
+  box-shadow: 0 0 0 3px rgba(20, 99, 255, 0.12);
+  outline: none;
+}
+
+.dt-input[aria-invalid='true'],
+.dt-textarea[aria-invalid='true'],
+.dt-select[aria-invalid='true'] {
+  border-color: var(--dt-danger);
+}
+
+/* El fondo apagado significa «esto no se escribe»: lo usa la edad, que la
+   calcula el sistema. */
+.dt-input[readonly] {
+  background: var(--dt-surface-muted);
+  color: var(--dt-text-soft);
+  cursor: default;
+}
+
+/* El campo de fecha también es `readonly` —se rellena desde el calendario—
+   pero sí es interactivo, así que no puede vestirse de sólo lectura. */
+.dt-datefield .dt-input[readonly] {
+  background: var(--dt-surface);
+  color: var(--dt-text);
+  cursor: pointer;
+}
+
+.dt-field-error {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--dt-danger);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.dt-field-error svg {
+  height: 13px;
+  width: 13px;
+  flex-shrink: 0;
+}
+
+.dt-field-hint {
+  color: var(--dt-muted);
+  font-size: 0.75rem;
+}
+
+.dt-form-grid {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 640px) {
+  .dt-form-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1280px) {
+  .dt-form-grid[data-columns='3'] {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .dt-form-grid[data-columns='4'] {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.dt-form-grid > .dt-span-full {
+  grid-column: 1 / -1;
+}
+
+.dt-fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.dt-fieldset + .dt-fieldset {
+  margin-top: 28px;
+}
+
+.dt-fieldset legend {
+  padding: 0;
+  color: var(--dt-text);
+  font-size: 0.9375rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.dt-fieldset-hint {
+  margin: 5px 0 18px;
+  color: var(--dt-muted);
+  font-size: 0.8125rem;
+}
+
+/* ----------------------------------------------------------------- tabla */
+
+.dt-table-wrap {
+  overflow-x: auto;
+  border-radius: var(--dt-radius-card);
+}
+
+.dt-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 900px;
+  font-size: 0.8125rem;
+}
+
+.dt-table thead th {
+  border-bottom: 1px solid var(--dt-border);
+  background: var(--dt-surface-muted);
+  padding: 11px 16px;
+  color: var(--dt-muted);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-align: left;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.dt-table tbody td {
+  border-bottom: 1px solid var(--dt-border);
+  padding: 13px 16px;
+  color: var(--dt-text-soft);
+  vertical-align: middle;
+}
+
+.dt-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.dt-table tbody tr:hover td {
+  background: var(--dt-primary-tint);
+}
+
+/*
+ * La anchura mínima de arriba es la del listado de evaluaciones,
+que tiene
+ * ocho columnas. Un protocolo de tres columnas dentro de una tarjeta estrecha
+ * la heredaría y desbordaría,
+escondiendo justo la columna de puntuaciones.
+ */
+.dt-table[data-compact='true'] {
+  min-width: 0;
+}
+
+.dt-table tfoot td {
+  border-top: 1px solid var(--dt-border-strong);
+  background: var(--dt-surface-muted);
+  padding: 13px 16px;
+  color: var(--dt-text);
+  font-weight: 700;
+}
+
+.dt-table-person {
+  display: flex;
+  min-width: 168px;
+  align-items: center;
+  gap: 11px;
+}
+
+.dt-table-person strong {
+  display: block;
+  color: var(--dt-text);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+/* El código del expediente es un identificador: partido en dos líneas deja de
+   poder leerse de un vistazo y de poder copiarse. */
+.dt-table-person small {
+  display: block;
+  margin-top: 2px;
+  color: var(--dt-faint);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------------------ tabs */
+
+.dt-tabs {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.dt-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.dt-tab {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  gap: 7px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  padding: 0 14px;
+  color: var(--dt-muted);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.dt-tab:hover {
+  background: #eef2f7;
+  color: var(--dt-text);
+}
+
+.dt-tab[aria-selected='true'],
+.dt-tab[data-active='true'] {
+  background: var(--dt-primary-soft);
+  color: var(--dt-primary-strong);
+}
+
+.dt-tab-count {
+  border-radius: 999px;
+  background: rgba(13, 31, 60, 0.08);
+  padding: 1px 7px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+
+.dt-tab[aria-selected='true'] .dt-tab-count,
+.dt-tab[data-active='true'] .dt-tab-count {
+  background: rgba(20, 99, 255, 0.16);
+}
+
+/* ---------------------------------------------------------------- buscar */
+
+.dt-search {
+  display: flex;
+  height: 44px;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--dt-border-strong);
+  border-radius: var(--dt-radius-control);
+  background: var(--dt-surface);
+  padding: 0 13px;
+}
+
+.dt-search:focus-within {
+  border-color: var(--dt-primary);
+  box-shadow: 0 0 0 3px rgba(20, 99, 255, 0.12);
+}
+
+.dt-search svg {
+  height: 16px;
+  width: 16px;
+  flex-shrink: 0;
+  color: var(--dt-faint);
+}
+
+.dt-search input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  background: transparent;
+  color: var(--dt-text);
+  font-family: inherit;
+  font-size: 0.875rem;
+  outline: none;
+}
+
+
+
+.dt-step {
+  position: relative;
+  display: flex;
+  min-height: 46px;
+  align-items: center;
+  gap: 12px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  padding: 8px 12px;
+  color: var(--dt-muted);
+  font-family: inherit;
+  font-size: 0.8125rem;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.dt-step:hover {
+  background: var(--dt-surface-muted);
+}
+
+.dt-step[aria-current='step'] {
+  background: var(--dt-primary-soft);
+}
+
+.dt-step[aria-current='step'] .dt-step-label {
+  color: var(--dt-primary-strong);
+  font-weight: 700;
+}
+
+.dt-step-mark {
+  display: grid;
+  height: 26px;
+  width: 26px;
+  flex-shrink: 0;
+  place-items: center;
+  border: 1.5px solid var(--dt-border-strong);
+  border-radius: 999px;
+  background: var(--dt-surface);
+  color: var(--dt-faint);
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+
+.dt-step-mark svg {
+  height: 13px;
+  width: 13px;
+}
+
+.dt-step[data-status='COMPLETED'] .dt-step-mark {
+  border-color: var(--dt-success);
+  background: var(--dt-success);
+  color: #fff;
+}
+
+.dt-step[data-status='IN_PROGRESS'] .dt-step-mark {
+  border-color: var(--dt-primary);
+  background: var(--dt-primary);
+  color: #fff;
+}
+
+.dt-step-body {
+  min-width: 0;
+}
+
+.dt-step-label {
+  display: block;
+  overflow: hidden;
+  color: var(--dt-text-soft);
+  font-weight: 600;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+}
+
+.dt-step-status {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.6875rem;
+  font-weight: 500;
+}
+
+.dt-step[data-status='COMPLETED'] .dt-step-status {
+  color: var(--dt-success);
+}
+
+.dt-step[data-status='IN_PROGRESS'] .dt-step-status {
+  color: var(--dt-primary);
+}
+
+.dt-step[data-status='PENDING'] .dt-step-status {
+  color: var(--dt-faint);
+}
+
+
+
+
+/* Stepper compacto de subtests. */
+.dt-subtest-stepper {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.dt-subtest-dot {
+  display: grid;
+  height: 34px;
+  width: 34px;
+  place-items: center;
+  border: 1.5px solid var(--dt-border-strong);
+  border-radius: 999px;
+  background: var(--dt-surface);
+  color: var(--dt-muted);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.dt-subtest-dot:hover {
+  border-color: var(--dt-primary);
+}
+
+.dt-subtest-dot[data-state='current'] {
+  border-color: var(--dt-primary);
+  background: var(--dt-primary);
+  color: #fff;
+}
+
+.dt-subtest-dot[data-state='done'] {
+  border-color: var(--dt-success);
+  background: var(--dt-success-soft);
+  color: var(--dt-success);
+}
+
+/* -------------------------------------------------------- pie de etapa */
+
+.dt-step-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-top: 1px solid var(--dt-border);
+  margin-top: 28px;
+  padding-top: 20px;
+}
+
+.dt-step-footer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.dt-autosave {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--dt-muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.dt-autosave svg {
+  height: 13px;
+  width: 13px;
+}
+
+.dt-autosave[data-state='saving'] {
+  color: var(--dt-primary);
+}
+
+.dt-autosave[data-state='saved'] {
+  color: var(--dt-success);
+}
+
+.dt-autosave[data-state='error'] {
+  color: var(--dt-danger);
+}
+
+@keyframes dt-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.dt-spin {
+  animation: dt-spin 0.9s linear infinite;
+}
+
+/* ------------------------------------------------------------- estados */
+
+.dt-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 48px 24px;
+  text-align: center;
+}
+
+.dt-state-icon {
+  display: grid;
+  height: 48px;
+  width: 48px;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--dt-primary-soft);
+  color: var(--dt-primary);
+  margin-bottom: 6px;
+}
+
+.dt-state-icon[data-tone='danger'] {
+  background: var(--dt-danger-soft);
+  color: var(--dt-danger);
+}
+
+.dt-state-icon svg {
+  height: 21px;
+  width: 21px;
+}
+
+.dt-state h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.dt-state p {
+  margin: 0;
+  max-width: 42ch;
+  color: var(--dt-muted);
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+.dt-state-actions {
+  margin-top: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+
+@keyframes dt-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.dt-skeleton {
+  border-radius: 10px;
+  background: #e6ebf3;
+  animation: dt-pulse 1.5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dt-skeleton,
+.dt-spin {
+    animation: none;
+  }
+  .dt *,
+.dt *::before,
+.dt *::after {
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ------------------------------------------------------------- diálogo */
+
+.dt-dialog-backdrop {
+  position: fixed;
+  z-index: 60;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(7, 30, 65, 0.42);
+  padding: 20px;
+}
+
+.dt-dialog {
+  width: min(100%, 440px);
+  border-radius: var(--dt-radius-card);
+  background: var(--dt-surface);
+  padding: 24px;
+  box-shadow: 0 18px 48px rgba(7, 30, 65, 0.24);
+}
+
+.dt-dialog h2 {
+  margin: 0 0 8px;
+  font-size: 1.0625rem;
+  font-weight: 700;
+}
+
+.dt-dialog p {
+  margin: 0;
+  color: var(--dt-muted);
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+.dt-dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+/* -------------------------------------------------------- selección card */
+
+.dt-choice {
+  position: relative;
+  display: flex;
+  height: 100%;
+  gap: 12px;
+  border: 1.5px solid var(--dt-border);
+  border-radius: 14px;
+  background: var(--dt-surface);
+  padding: 16px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.dt-choice:hover {
+  border-color: var(--dt-border-strong);
+}
+
+.dt-choice:focus-within {
+  border-color: var(--dt-primary);
+  box-shadow: 0 0 0 3px rgba(20, 99, 255, 0.12);
+}
+
+.dt-choice[data-checked='true'] {
+  border-color: var(--dt-primary);
+  background: var(--dt-primary-tint);
+}
+
+.dt-choice input {
+  position: absolute;
+  height: 1px;
+  width: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.dt-choice-box {
+  display: grid;
+  height: 20px;
+  width: 20px;
+  flex-shrink: 0;
+  place-items: center;
+  border: 1.5px solid var(--dt-border-strong);
+  border-radius: 6px;
+  background: var(--dt-surface);
+  color: transparent;
+  margin-top: 1px;
+}
+
+.dt-choice-box svg {
+  height: 13px;
+  width: 13px;
+}
+
+.dt-choice[data-checked='true'] .dt-choice-box {
+  border-color: var(--dt-primary);
+  background: var(--dt-primary);
+  color: #fff;
+}
+
+.dt-choice-body {
+  min-width: 0;
+}
+
+.dt-choice-body strong {
+  display: block;
+  color: var(--dt-text);
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.dt-choice-body p {
+  margin: 5px 0 0;
+  color: var(--dt-muted);
+  font-size: 0.75rem;
+  line-height: 1.55;
+}
+
+/* -------------------------------------------------------- escala 0..3 */
+
+.dt-scale {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.dt-scale-option {
+  position: relative;
+  display: grid;
+  height: 44px;
+  min-width: 44px;
+  place-items: center;
+  border: 1.5px solid var(--dt-border-strong);
+  border-radius: var(--dt-radius-control);
+  background: var(--dt-surface);
+  padding: 0 14px;
+  color: var(--dt-text-soft);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.dt-scale-option:hover {
+  border-color: var(--dt-primary);
+}
+
+.dt-scale-option input {
+  position: absolute;
+  height: 1px;
+  width: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.dt-scale-option[data-checked='true'] {
+  border-color: var(--dt-primary);
+  background: var(--dt-primary);
+  color: #fff;
+}
+
+/* --------------------------------------------------------------- varios */
+
+.dt-kpi-icon {
+  display: grid;
+  height: 40px;
+  width: 40px;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 11px;
+}
+
+.dt-kpi-icon svg {
+  height: 19px;
+  width: 19px;
+}
+
+.dt-meta-list {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+}
+
+.dt-meta-list dt {
+  color: var(--dt-faint);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.dt-meta-list dd {
+  margin: 4px 0 0;
+  color: var(--dt-text);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.dt-breadcrumb {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+  color: var(--dt-muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.dt-breadcrumb a {
+  color: var(--dt-muted);
+  text-decoration: none;
+}
+
+.dt-breadcrumb a:hover {
+  color: var(--dt-primary);
+  text-decoration: underline;
+}
+
+.dt-breadcrumb svg {
+  height: 13px;
+  width: 13px;
+  color: var(--dt-faint);
+}
+
+.dt-breadcrumb [aria-current='page'] {
+  color: var(--dt-text);
+  font-weight: 600;
+}
+
+.dt-note {
+  display: flex;
+  gap: 10px;
+  border: 1px solid var(--dt-border);
+  border-radius: 12px;
+  background: var(--dt-surface-muted);
+  padding: 13px 15px;
+  color: var(--dt-text-soft);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+}
+
+.dt-note svg {
+  height: 16px;
+  width: 16px;
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--dt-muted);
+}
+
+.dt-note[data-tone='warning'] {
+  border-color: #f2ddb6;
+  background: var(--dt-warning-soft);
+  color: #7a5008;
+}
+
+.dt-note[data-tone='warning'] svg {
+  color: var(--dt-warning);
+}
+
+.dt-note[data-tone='danger'] {
+  border-color: #f3c9cb;
+  background: var(--dt-danger-soft);
+  color: #922127;
+}
+
+.dt-note[data-tone='danger'] svg {
+  color: var(--dt-danger);
+}
+
+.dt-divider {
+  border: 0;
+  border-top: 1px solid var(--dt-border);
+  margin: 22px 0;
+}
+
+.dt-sr-only {
+  position: absolute;
+  height: 1px;
+  width: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------------ calendario */
+
+.dt-datefield {
+  position: relative;
+}
+
+.dt-datefield .dt-input {
+  padding-right: 44px;
+  cursor: pointer;
+}
+
+.dt-datefield-trigger {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  display: grid;
+  height: 32px;
+  width: 32px;
+  place-items: center;
+  transform: translateY(-50%);
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--dt-muted);
+  cursor: pointer;
+}
+
+.dt-datefield-trigger:hover {
+  background: var(--dt-primary-tint);
+  color: var(--dt-primary);
+}
+
+.dt-datefield-trigger svg {
+  height: 17px;
+  width: 17px;
+}
+
+.dt-calendar {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 288px;
+  max-width: calc(100vw - 40px);
+  border: 1px solid var(--dt-border);
+  border-radius: 14px;
+  background: var(--dt-surface);
+  padding: 14px;
+  box-shadow: 0 12px 32px rgba(13, 31, 60, 0.14);
+}
+
+.dt-calendar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.dt-calendar-selectors {
+  display: flex;
+  gap: 4px;
+}
+
+.dt-calendar-selectors button {
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  padding: 5px 9px;
+  color: var(--dt-text);
+  font-family: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-transform: capitalize;
+  cursor: pointer;
+}
+
+.dt-calendar-selectors button:hover,
+.dt-calendar-selectors button[data-active='true'] {
+  background: var(--dt-primary-soft);
+  color: var(--dt-primary-strong);
+}
+
+.dt-calendar-arrows {
+  display: flex;
+  gap: 2px;
+}
+
+.dt-calendar-arrows button {
+  display: grid;
+  height: 30px;
+  width: 30px;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--dt-muted);
+  cursor: pointer;
+}
+
+.dt-calendar-arrows button:hover {
+  background: var(--dt-primary-tint);
+  color: var(--dt-primary);
+}
+
+.dt-calendar-arrows svg {
+  height: 16px;
+  width: 16px;
+}
+
+.dt-calendar-week {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  margin-bottom: 4px;
+}
+
+.dt-calendar-week span {
+  color: var(--dt-faint);
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-align: center;
+}
+
+.dt-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.dt-calendar-grid button {
+  height: 34px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--dt-text-soft);
+  font-family: inherit;
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+
+.dt-calendar-grid button:hover {
+  background: var(--dt-primary-tint);
+}
+
+.dt-calendar-grid button[data-selected='true'] {
+  background: var(--dt-primary);
+  color: #fff;
+  font-weight: 700;
+}
+
+.dt-calendar-choices {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+}
+
+.dt-calendar-choices button {
+  height: 38px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--dt-text-soft);
+  font-family: inherit;
+  font-size: 0.8125rem;
+  text-transform: capitalize;
+  cursor: pointer;
+}
+
+.dt-calendar-choices button:hover {
+  background: var(--dt-primary-tint);
+}
+
+.dt-calendar-choices button[data-selected='true'] {
+  background: var(--dt-primary);
+  color: #fff;
+  font-weight: 700;
+}
+
+.dt-calendar-today {
+  width: 100%;
+  border: 0;
+  border-top: 1px solid var(--dt-border);
+  margin-top: 10px;
+  padding-top: 10px;
+  background: transparent;
+  color: var(--dt-primary);
+  font-family: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* -------------------------------------------------- popovers de la barra */
+
+.dt-user-menu {
+  position: relative;
+}
+
+.dt-user-popover {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 8px);
+  right: 0;
+  width: max(100%, 244px);
+  overflow: hidden;
+  border: 1px solid var(--dt-border);
+  border-radius: 13px;
+  background: var(--dt-surface);
+  box-shadow: 0 12px 32px rgba(7, 30, 65, 0.22);
+}
+
+.dt-user-popover-head {
+  border-bottom: 1px solid var(--dt-border);
+  margin: 0;
+  padding: 13px 15px;
+}
+
+.dt-user-popover-head strong {
+  display: block;
+  color: var(--dt-text);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.dt-user-popover-head span {
+  display: block;
+  margin-top: 3px;
+  overflow: hidden;
+  color: var(--dt-muted);
+  font-size: 0.75rem;
+  text-overflow: ellipsis;
+}
+
+.dt-user-popover-item {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 10px;
+  padding: 0 15px;
+  color: var(--dt-text-soft);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.dt-user-popover-item:hover {
+  background: var(--dt-primary-tint);
+  color: var(--dt-primary);
+}
+
+.dt-user-popover-item svg {
+  height: 16px;
+  width: 16px;
+}
+
+.dt-notify {
+  position: relative;
+}
+
+.dt-notify-panel {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 8px);
+  right: 0;
+  width: min(340px, calc(100vw - 32px));
+  overflow: hidden;
+  border: 1px solid var(--dt-border);
+  border-radius: 14px;
+  background: var(--dt-surface);
+  box-shadow: 0 14px 36px rgba(13, 31, 60, 0.16);
+}
+
+.dt-notify-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid var(--dt-border);
+  margin: 0;
+  padding: 13px 16px;
+  color: var(--dt-text);
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.dt-notify-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 0;
+  padding: 26px 20px;
+  color: var(--dt-muted);
+  font-size: 0.8125rem;
+  text-align: center;
+}
+
+.dt-notify-empty svg {
+  height: 16px;
+  width: 16px;
+}
+
+.dt-notify-list {
+  max-height: 320px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+}
+
+.dt-notify-list a {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  border-radius: 10px;
+  padding: 11px;
+  text-decoration: none;
+}
+
+.dt-notify-list a:hover {
+  background: var(--dt-primary-tint);
+}
+
+.dt-notify-list strong {
+  display: block;
+  color: var(--dt-text);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.dt-notify-list small {
+  display: block;
+  margin-top: 3px;
+  color: var(--dt-muted);
+  font-size: 0.75rem;
+}
+
+.dt-notify-icon {
+  display: grid;
+  height: 30px;
+  width: 30px;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 9px;
+}
+
+.dt-notify-icon svg {
+  height: 15px;
+  width: 15px;
+}
+
+.dt-notify-icon[data-tone='success'] {
+  background: var(--dt-success-soft);
+  color: var(--dt-success);
+}
+
+.dt-notify-icon[data-tone='warning'] {
+  background: var(--dt-warning-soft);
+  color: var(--dt-warning);
+}
+
+
+
+
+
+
+/* --------------------------------------------------------------- inicio */
+
+.dt-home {
+  display: grid;
+  gap: 20px;
+}
+
+.dt-kpi-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (min-width: 1100px) {
+  .dt-kpi-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.dt-kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px;
+}
+
+.dt-kpi-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.dt-kpi-icon {
+  display: grid;
+  height: 46px;
+  width: 46px;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 13px;
+}
+
+.dt-kpi-icon svg {
+  height: 21px;
+  width: 21px;
+}
+
+.dt-kpi-figures {
+  min-width: 0;
+}
+
+.dt-kpi-label {
+  margin: 0;
+  color: var(--dt-text-soft);
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.dt-kpi-value {
+  margin: 2px 0 0;
+  font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+}
+
+.dt-kpi-hint {
+  margin: 2px 0 0;
+  color: var(--dt-faint);
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.dt-kpi .dt-section-link {
+  margin-top: auto;
+}
+
+/* ----------------------------------------------------------- dos columnas */
+
+.dt-home-grid {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+}
+
+@media (min-width: 1180px) {
+  .dt-home-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.dt-home-column {
+  display: grid;
+  gap: 20px;
+  min-width: 0;
+  align-content: start;
+}
+
+/* ---------------------------------------------------- continuar trabajando */
+
+.dt-resume {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+}
+
+.dt-resume-name {
+  margin: 0;
+  color: var(--dt-text);
+  font-size: 1.0625rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+
+.dt-resume-meta {
+  margin: 3px 0 0;
+  color: var(--dt-muted);
+  font-size: 0.8125rem;
+}
+
+.dt-resume-progress {
+  display: grid;
+  gap: 7px;
+  margin-left: auto;
+  min-width: 150px;
+  flex: 1;
+}
+
+.dt-resume-percent {
+  color: var(--dt-text);
+  font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.dt-resume-stage {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 18px 0 0;
+  color: var(--dt-muted);
+  font-size: 0.8125rem;
+}
+
+.dt-stage-pill {
+  border-radius: 7px;
+  background: var(--dt-primary-soft);
+  padding: 3px 9px;
+  color: var(--dt-primary-strong);
+  font-weight: 600;
+}
+
+.dt-stage-arrow {
+  height: 14px;
+  width: 14px;
+  color: var(--dt-faint);
+}
+
+.dt-stage-detail {
+  color: var(--dt-text-soft);
+  font-weight: 500;
+}
+
+.dt-resume-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  border-radius: 13px;
+  background: var(--dt-primary-tint);
+  margin-top: 18px;
+  padding: 12px 14px;
+}
+
+.dt-resume-updated {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--dt-muted);
+  font-size: 0.8125rem;
+}
+
+.dt-resume-updated strong {
+  color: var(--dt-text);
+  font-weight: 600;
+}
+
+.dt-resume-updated svg {
+  height: 16px;
+  width: 16px;
+  color: var(--dt-primary);
+}
+
+/* ---------------------------------------------------------- aviso en fila */
+
+.dt-inline-alert {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid #f2ddb6;
+  border-radius: 13px;
+  background: var(--dt-warning-soft);
+  margin-top: 14px;
+  padding: 12px 14px;
+}
+
+.dt-inline-alert > svg {
+  height: 18px;
+  width: 18px;
+  flex-shrink: 0;
+  color: var(--dt-warning);
+}
+
+.dt-inline-alert p {
+  flex: 1;
+  min-width: 180px;
+  margin: 0;
+  color: #7a5008;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.dt-inline-alert .dt-btn {
+  border-color: #e4c98f;
+  background: var(--dt-surface);
+  color: var(--dt-warning);
+}
+
+.dt-inline-alert .dt-btn:hover {
+  border-color: var(--dt-warning);
+  color: #7a5008;
+}
+
+/* -------------------------------------------------------- filas de lista */
+
+.dt-mini-list {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dt-row {
+  display: grid;
+  align-items: center;
+  gap: 12px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  border-radius: 12px;
+  padding: 11px 10px;
+  text-decoration: none;
+  transition: background 0.15s ease;
+}
+
+@media (min-width: 620px) {
+  .dt-row {
+    grid-template-columns: auto minmax(0, 1.1fr) minmax(0, 1fr) 108px 16px;
+  }
+}
+
+.dt-row:hover {
+  background: var(--dt-primary-tint);
+}
+
+.dt-row-person {
+  min-width: 0;
+}
+
+.dt-row-person strong {
+  display: block;
+  overflow: hidden;
+  color: var(--dt-text);
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dt-row-person small {
+  display: block;
+  margin-top: 2px;
+  color: var(--dt-faint);
+  font-size: 0.75rem;
+}
+
+.dt-row-stage {
+  min-width: 0;
+  grid-column: 2 / -1;
+}
+
+@media (min-width: 620px) {
+  .dt-row-stage {
+    grid-column: auto;
+  }
+}
+
+.dt-row-stage strong {
+  display: block;
+  overflow: hidden;
+  color: var(--dt-text-soft);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dt-row-stage small {
+  display: block;
+  margin-top: 2px;
+  overflow: hidden;
+  color: var(--dt-faint);
+  font-size: 0.75rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dt-row-progress {
+  display: grid;
+  gap: 6px;
+  justify-items: end;
+  min-width: 0;
+  grid-column: 2 / -1;
+}
+
+@media (min-width: 620px) {
+  .dt-row-progress {
+    grid-column: auto;
+    width: 108px;
+  }
+}
+
+.dt-row-progress > div {
+  width: 100%;
+}
+
+.dt-row-percent {
+  color: var(--dt-text-soft);
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.dt-row-check {
+  height: 22px;
+  width: 22px;
+  color: var(--dt-success);
+}
+
+.dt-row-chevron {
+  height: 16px;
+  width: 16px;
+  flex-shrink: 0;
+  color: var(--dt-faint);
+}
+
+/* ------------------------------------------------------- acciones rapidas */
+
+.dt-actions-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 700px) {
+  .dt-actions-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1180px) {
+  .dt-actions-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.dt-action {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  border: 1px solid var(--dt-border);
+  border-radius: 14px;
+  background: var(--dt-surface);
+  padding: 16px;
+  text-decoration: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.dt-action:hover {
+  border-color: var(--dt-primary);
+  box-shadow: var(--dt-shadow-raised);
+}
+
+.dt-action-icon {
+  display: grid;
+  height: 42px;
+  width: 42px;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 999px;
+}
+
+.dt-action-icon svg {
+  height: 19px;
+  width: 19px;
+}
+
+.dt-action strong {
+  display: block;
+  color: var(--dt-text);
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.dt-action small {
+  display: block;
+  margin-top: 3px;
+  color: var(--dt-muted);
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.dt-home-footer {
+  margin: 8px 0 0;
+  color: var(--dt-faint);
+  font-size: 0.75rem;
+  text-align: center;
+}
+
+/* -------------------------------------------------------------- listado */
+
+.dt-list-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border-bottom: 1px solid var(--dt-border);
+  padding: 14px 16px;
+}
+
+@media (min-width: 768px) {
+  .dt-list-toolbar {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.dt-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-top: 1px solid var(--dt-border);
+  padding: 12px 16px;
+}
+
+.dt-pagination p {
+  margin: 0;
+  color: var(--dt-muted);
+  font-size: 0.75rem;
+}
+
+.dt-pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.dt-page-number {
+  min-width: 36px;
+  height: 36px;
+  border: 1px solid var(--dt-border);
+  border-radius: 9px;
+  background: var(--dt-surface);
+  color: var(--dt-text-soft);
+  font-family: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.dt-page-number:hover {
+  border-color: var(--dt-primary);
+  color: var(--dt-primary);
+}
+
+.dt-page-number[data-active='true'] {
+  border-color: var(--dt-primary);
+  background: var(--dt-primary);
+  color: #fff;
+}
+
+/* ---------------------------------------------------- bloques y tarjetas */
+
+.dt-block {
+  border: 1px solid var(--dt-border);
+  border-radius: 14px;
+  background: var(--dt-surface-muted);
+  padding: 18px;
+}
+
+.dt-block-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.dt-block-head h3 {
+  margin: 0;
+  color: var(--dt-text);
+  font-size: 0.9375rem;
+  font-weight: 700;
+}
+
+.dt-block-head p {
+  margin: 4px 0 0;
+  color: var(--dt-muted);
+  font-size: 0.75rem;
+}
+
+.dt-block .dt-input,
+.dt-block .dt-textarea {
+  background: var(--dt-surface);
+}
+
+.dt-choice-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 700px) {
+  .dt-choice-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1400px) {
+  .dt-choice-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.dt-instrument-card {
+  display: grid;
+  gap: 18px;
+  border: 1px solid var(--dt-border);
+  border-radius: 14px;
+  background: var(--dt-surface);
+  padding: 20px;
+}
+
+@media (min-width: 860px) {
+  .dt-instrument-card {
+    grid-template-columns: minmax(0, 1fr) 230px;
+    align-items: start;
+  }
+}
+
+.dt-instrument-main h3 {
+  margin: 0;
+  font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
+  font-size: 1.125rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.dt-instrument-main > header p {
+  margin: 3px 0 0;
+  color: var(--dt-muted);
+  font-size: 0.8125rem;
+}
+
+.dt-instrument-meta {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 18px 0 0;
+}
+
+@media (min-width: 620px) {
+  .dt-instrument-meta {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.dt-instrument-meta dt {
+  color: var(--dt-faint);
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.dt-instrument-meta dd {
+  margin: 4px 0 0;
+  color: var(--dt-text);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.dt-instrument-action {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-top: 1px solid var(--dt-border);
+  padding-top: 16px;
+}
+
+@media (min-width: 860px) {
+  .dt-instrument-action {
+    border-top: 0;
+    border-left: 1px solid var(--dt-border);
+    padding-top: 0;
+    padding-left: 20px;
+  }
+}
+
+.dt-instrument-layout {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+}
+
+@media (min-width: 1200px) {
+  .dt-instrument-layout {
+    grid-template-columns: minmax(0, 1fr) 300px;
+  }
+}
+
+.dt-scale-legend {
+  display: grid;
+  gap: 4px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--dt-muted);
+  font-size: 0.75rem;
+}
+
+/* ------------------------------------------------- resultados e informe */
+
+.dt-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--dt-text);
+  font-size: 0.9375rem;
+  font-weight: 700;
+}
+
+.dt-section-title svg {
+  height: 17px;
+  width: 17px;
+  color: var(--dt-primary);
+}
+
+.dt-split {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+}
+
+@media (min-width: 1000px) {
+  .dt-split {
+    grid-template-columns: 300px minmax(0, 1fr);
+  }
+}
+
+.dt-bars {
+  display: grid;
+  gap: 9px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dt-bars li {
+  display: grid;
+  align-items: center;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 700px) {
+  .dt-bars li {
+    grid-template-columns: 190px minmax(0, 1fr) 150px;
+  }
+}
+
+.dt-bars-label {
+  overflow: hidden;
+  color: var(--dt-text-soft);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dt-bars-track {
+  height: 9px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e8edf5;
+}
+
+.dt-bars-fill {
+  display: block;
+  height: 100%;
+  min-width: 3px;
+  border-radius: 999px;
+}
+
+.dt-bars-value {
+  color: var(--dt-muted);
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+
+@media (min-width: 700px) {
+  .dt-bars-value {
+    text-align: right;
+  }
+}
+
+.dt-report-gate {
+  display: grid;
+  gap: 24px;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
+}
+
+@media (min-width: 860px) {
+  .dt-report-gate {
+    grid-template-columns: minmax(0, 1fr) 200px;
+  }
+}
+
+.dt-checklist {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dt-checklist-item {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  border-radius: 10px;
+  padding: 10px 12px;
+  color: var(--dt-text-soft);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.dt-checklist-item[data-complete='true'] {
+  background: var(--dt-success-soft);
+  color: var(--dt-text);
+}
+
+.dt-checklist-mark {
+  display: grid;
+  height: 22px;
+  width: 22px;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 999px;
+  background: #e8edf5;
+  color: var(--dt-faint);
+}
+
+.dt-checklist-mark svg {
+  height: 13px;
+  width: 13px;
+}
+
+.dt-checklist-item[data-complete='true'] .dt-checklist-mark {
+  background: var(--dt-success);
+  color: #fff;
+}
+
+.dt-completion {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-align: center;
+}
+
+.dt-completion-label {
+  margin: 8px 0 0;
+  color: var(--dt-text-soft);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+
+.dt-completion-detail {
+  margin: 0;
+  color: var(--dt-muted);
+  font-size: 0.75rem;
+}
+
+/* ------------------------------------------------------------- informe */
+
+.dt-report-frame {
+  max-height: 70vh;
+  overflow-y: auto;
+  border: 1px solid var(--dt-border);
+  border-radius: 14px;
+  background: var(--dt-surface-muted);
+  padding: 20px;
+}
+
+.dt-report {
+  max-width: 760px;
+  margin: 0 auto;
+  border-radius: 10px;
+  background: var(--dt-surface);
+  padding: 40px 44px;
+  box-shadow: var(--dt-shadow-raised);
+}
+
+@media (max-width: 640px) {
+  .dt-report {
+    padding: 24px 20px;
+  }
+}
+
+.dt-report-head {
+  border-bottom: 2px solid var(--dt-primary);
+  margin-bottom: 26px;
+  padding-bottom: 18px;
+}
+
+.dt-report-brand {
+  margin: 0;
+  color: var(--dt-primary);
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+}
+
+.dt-report-head h2 {
+  margin: 10px 0 0;
+  font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.dt-report-subject {
+  margin: 6px 0 0;
+  color: var(--dt-muted);
+  font-size: 0.8125rem;
+}
+
+.dt-report-section {
+  margin-bottom: 26px;
+}
+
+.dt-report-section h3 {
+  margin: 0 0 12px;
+  color: var(--dt-text);
+  font-size: 0.9375rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.dt-report-subheading {
+  margin: 16px 0 8px;
+  color: var(--dt-text-soft);
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.dt-report-paragraph {
+  margin: 0 0 10px;
+  color: var(--dt-text-soft);
+  font-size: 0.875rem;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
+.dt-report-pairs {
+  display: grid;
+  gap: 12px;
+  margin: 0 0 12px;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 600px) {
+  .dt-report-pairs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.dt-report-pairs dt {
+  color: var(--dt-faint);
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.dt-report-pairs dd {
+  margin: 3px 0 0;
+  color: var(--dt-text);
+  font-size: 0.875rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.dt-report-list {
+  margin: 0 0 12px;
+  padding-left: 20px;
+  color: var(--dt-muted);
+  font-size: 0.8125rem;
+  line-height: 1.7;
+}
+
+.dt-report-table {
+  margin-bottom: 14px;
+  border: 1px solid var(--dt-border);
+}
+
+/* ------------------------------------------------- navegación de subetapas */
+
+/*
+ * Antecedentes,
+áreas evaluadas e instrumentos comparten forma: una etapa que
+ * por dentro tiene secciones. La navegación va a la izquierda y marca lo que
+ * ya está registrado,
+para que el profesional vea de un vistazo qué le queda
+ * sin tener que entrar sección por sección.
+ */
+
+.dt-substep {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+}
+
+@media (min-width: 1000px) {
+  .dt-substep {
+    grid-template-columns: 232px minmax(0, 1fr);
+  }
+}
+
+.dt-substep-nav {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  border-radius: 12px;
+  background: var(--dt-surface-muted);
+  padding: 6px;
+}
+
+.dt-substep-nav::-webkit-scrollbar {
+  display: none;
+}
+
+@media (min-width: 1000px) {
+  .dt-substep-nav {
+    display: grid;
+    gap: 2px;
+    position: sticky;
+    top: 84px;
+  }
+}
+
+.dt-substep-item {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  gap: 9px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  padding: 0 12px;
+  color: var(--dt-text-soft);
+  font-family: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+@media (min-width: 1000px) {
+  .dt-substep-item {
+    white-space: normal;
+    line-height: 1.35;
+    padding: 9px 12px;
+  }
+}
+
+.dt-substep-item:hover {
+  background: var(--dt-primary-tint);
+  color: var(--dt-text);
+}
+
+.dt-substep-item[aria-current='true'] {
+  background: var(--dt-primary-soft);
+  color: var(--dt-primary-strong);
+}
+
+.dt-substep-mark {
+  display: grid;
+  height: 20px;
+  width: 20px;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 999px;
+  background: #e8edf5;
+  color: var(--dt-faint);
+}
+
+.dt-substep-mark svg {
+  height: 12px;
+  width: 12px;
+}
+
+.dt-substep-mark[data-complete='true'] {
+  background: var(--dt-success);
+  color: #fff;
+}
+
+.dt-substep-body {
+  min-width: 0;
+}
+
+.dt-substep-head {
+  margin-bottom: 18px;
+}
+
+.dt-substep-head h3 {
+  margin: 0;
+  color: var(--dt-text);
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.dt-substep-head p {
+  margin: 4px 0 0;
+  max-width: 60ch;
+  color: var(--dt-muted);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+}
+
+.dt-block-hint {
+  margin: 0 0 14px;
+  color: var(--dt-muted);
+  font-size: 0.75rem;
+  line-height: 1.6;
+}
+
+.dt-split-even {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+}
+
+@media (min-width: 900px) {
+  .dt-split-even {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* ------------------------------------------------------ desempeño en píldoras */
+
+.dt-choice-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.dt-radio-pill {
+  position: relative;
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  gap: 9px;
+  border: 1.5px solid var(--dt-border-strong);
+  border-radius: 999px;
+  background: var(--dt-surface);
+  padding: 0 16px;
+  color: var(--dt-text-soft);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.dt-radio-pill:hover {
+  border-color: var(--dt-border-strong);
+  background: var(--dt-surface-muted);
+}
+
+.dt-radio-pill input {
+  position: absolute;
+  height: 1px;
+  width: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.dt-radio-dot {
+  display: block;
+  height: 14px;
+  width: 14px;
+  flex-shrink: 0;
+  border: 1.5px solid var(--dt-border-strong);
+  border-radius: 999px;
+  background: var(--dt-surface);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* El color sólo aparece al elegir: una fila de píldoras de colores antes de
+   responder sugeriría que ya hay un juicio emitido. */
+.dt-radio-pill[data-checked='true'][data-tone='success'] {
+  border-color: var(--dt-success);
+  background: var(--dt-success-soft);
+  color: var(--dt-success);
+}
+
+.dt-radio-pill[data-checked='true'][data-tone='warning'] {
+  border-color: var(--dt-warning);
+  background: var(--dt-warning-soft);
+  color: var(--dt-warning);
+}
+
+.dt-radio-pill[data-checked='true'][data-tone='danger'] {
+  border-color: var(--dt-danger);
+  background: var(--dt-danger-soft);
+  color: var(--dt-danger);
+}
+
+.dt-radio-pill[data-checked='true'] .dt-radio-dot {
+  border-color: currentColor;
+  box-shadow: inset 0 0 0 3.5px currentColor;
+}
+
+.dt-radio-pill:focus-within {
+  outline: 2px solid var(--dt-primary);
+  outline-offset: 2px;
+}
+
+.dt-instrument-badge {
+  display: grid;
+  height: 40px;
+  width: 40px;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 11px;
+  background: var(--dt-primary-soft);
+  color: var(--dt-primary-strong);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+/* --------------------------------------------------- entradas numeradas */
+
+/*
+ * Conclusiones y recomendaciones se guardan una a una. La lista numerada no
+ * es decorativa: en el informe cada punto va numerado,
+así que la pantalla se
+ * parece a lo que se va a emitir.
+ */
+
+.dt-entries {
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+}
+
+.dt-entries-empty {
+  margin: 0;
+  width: 100%;
+  border: 1px dashed var(--dt-border-strong);
+  border-radius: 12px;
+  padding: 18px;
+  color: var(--dt-muted);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  text-align: center;
+}
+
+.dt-entry-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  list-style: none;
+  counter-reset: dt-entry;
+}
+
+.dt-entry {
+  display: grid;
+  align-items: start;
+  gap: 12px;
+  grid-template-columns: auto 26px minmax(0, 1fr) auto;
+  border: 1px solid var(--dt-border);
+  border-radius: 12px;
+  background: var(--dt-surface);
+  padding: 12px 14px;
+}
+
+.dt-entry:hover {
+  border-color: var(--dt-border-strong);
+}
+
+.dt-entry-number {
+  display: grid;
+  height: 26px;
+  width: 26px;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--dt-primary-soft);
+  color: var(--dt-primary-strong);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.dt-entry-text {
+  margin: 0;
+  padding-top: 3px;
+  color: var(--dt-text);
+  font-size: 0.875rem;
+  line-height: 1.65;
+  white-space: pre-wrap;
+}
+
+.dt-entry-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.dt-entry-action {
+  display: grid;
+  height: 30px;
+  width: 30px;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--dt-faint);
+  font-size: 0.8125rem;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.dt-entry-action:hover:not(:disabled) {
+  background: var(--dt-primary-tint);
+  color: var(--dt-primary);
+}
+
+.dt-entry-action[data-danger='true']:hover:not(:disabled) {
+  background: var(--dt-danger-soft);
+  color: var(--dt-danger);
+}
+
+.dt-entry-action:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.dt-entry-action svg {
+  height: 15px;
+  width: 15px;
+}
+
+.dt-entry-editor {
+  grid-column: 3 / -1;
+  display: grid;
+  gap: 10px;
+}
+
+.dt-entry-editor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* ============================================================ proceso ==== */
+
+/*
+ * Barra de proceso.
+ *
+ * Sustituye al panel lateral de etapas. Una evaluación es una secuencia,
+y una
+ * secuencia se lee de izquierda a derecha: el stepper horizontal deja el ancho
+ * completo al formulario,
+que es el protagonista de casi todas las pantallas.
+ * La identidad del evaluado va en la misma tarjeta,
+en una sola línea: hay que
+ * saber a quién se evalúa sin gastar un tercio de la pantalla en decirlo.
+ */
+
+.dt-flowbar {
+  padding: var(--dt-space-4) var(--dt-space-5) var(--dt-space-3);
+}
+
+.dt-flowbar-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--dt-space-3);
+  margin-bottom: var(--dt-space-4);
+}
+
+.dt-flowbar-identity {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: var(--dt-space-3);
+}
+
+.dt-flowbar-identity strong {
+  display: block;
+  overflow: hidden;
+  color: var(--dt-text);
+  font-size: 0.9375rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dt-flowbar-identity small {
+  display: block;
+  margin-top: 1px;
+  color: var(--dt-muted);
+  font-size: 0.75rem;
+}
+
+.dt-flowbar-progress {
+  display: flex;
+  min-width: 190px;
+  align-items: center;
+  gap: var(--dt-space-3);
+}
+
+.dt-flowbar-progress .dt-progress {
+  width: 110px;
+}
+
+.dt-flowbar-percent {
+  color: var(--dt-text-soft);
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.dt-flow {
+  display: flex;
+  align-items: flex-start;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.dt-flow::-webkit-scrollbar {
+  display: none;
+}
+
+.dt-flow-step {
+  display: flex;
+  min-width: 84px;
+  flex: 1 1 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  padding: 0 2px 2px;
+  color: inherit;
+  font-family: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.dt-flow-step[data-interactive='false'] {
+  cursor: default;
+}
+
+.dt-flow-track {
+  display: flex;
+  width: 100%;
+  align-items: center;
+}
+
+.dt-flow-line {
+  height: 2px;
+  flex: 1;
+  background: var(--dt-border-strong);
+}
+
+.dt-flow-line[data-hidden='true'] {
+  background: transparent;
+}
+
+.dt-flow-mark {
+  display: grid;
+  height: 28px;
+  width: 28px;
+  flex-shrink: 0;
+  place-items: center;
+  border: 1.5px solid var(--dt-border-strong);
+  border-radius: 999px;
+  background: var(--dt-surface);
+  color: var(--dt-faint);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.dt-flow-mark svg {
+  height: 13px;
+  width: 13px;
+}
+
+.dt-flow-label {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--dt-faint);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1.25;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dt-flow-step[data-status='COMPLETED'] .dt-flow-mark {
+  border-color: var(--dt-success);
+  background: var(--dt-success);
+  color: #fff;
+}
+
+.dt-flow-step[data-status='COMPLETED'] .dt-flow-label {
+  color: var(--dt-text-soft);
+}
+
+.dt-flow-step[data-status='COMPLETED'] .dt-flow-line[data-side='left'] {
+  background: var(--dt-success);
+}
+
+/* Empezada pero sin cerrar: se marca en azul hueco. Sólo la etapa en la que
+   se está ahora va rellena, o «dónde estoy» dejaría de leerse de un vistazo. */
+.dt-flow-step[data-status='IN_PROGRESS'] .dt-flow-mark {
+  border-color: var(--dt-primary);
+  background: var(--dt-surface);
+  color: var(--dt-primary);
+}
+
+.dt-flow-step[data-status='IN_PROGRESS'] .dt-flow-label {
+  color: var(--dt-text-soft);
+}
+
+.dt-flow-step[aria-current='step'] .dt-flow-mark {
+  border-color: var(--dt-primary);
+  background: var(--dt-primary);
+  color: #fff;
+  box-shadow: 0 0 0 4px var(--dt-primary-soft);
+}
+
+.dt-flow-step[aria-current='step'] .dt-flow-label {
+  color: var(--dt-primary-strong);
+  font-weight: 700;
+}
+
+.dt-flow-step:hover:not([data-interactive='false']) .dt-flow-mark {
+  border-color: var(--dt-primary);
+}
+
+@media (max-width: 900px) {
+  .dt-flow-label {
+    display: none;
+  }
+
+  .dt-flow-step {
+    min-width: 44px;
+  }
+}
+
+/* ==================================================== selección de evaluado */
+
+/*
+ * Antes de que exista una evaluación hay que decir a quién se evalúa. La lista
+ * de personas ya registradas se lee como filas seleccionables,
+no como una
+ * tabla: aquí no se comparan datos,
+se elige a alguien.
+ */
+
+.dt-person-list {
+  display: grid;
+  gap: var(--dt-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dt-person-row {
+  display: grid;
+  width: 100%;
+  align-items: center;
+  gap: var(--dt-space-3);
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  border: 1.5px solid var(--dt-border);
+  border-radius: var(--dt-radius-md);
+  background: var(--dt-surface);
+  padding: var(--dt-space-3) var(--dt-space-4);
+  color: inherit;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.dt-person-row:hover {
+  border-color: var(--dt-border-strong);
+  background: var(--dt-surface-muted);
+}
+
+.dt-person-row[data-selected='true'] {
+  border-color: var(--dt-primary);
+  background: var(--dt-primary-tint);
+}
+
+.dt-person-row-body {
+  min-width: 0;
+}
+
+.dt-person-row-body strong {
+  display: block;
+  overflow: hidden;
+  color: var(--dt-text);
+  font-size: 0.875rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dt-person-row-body small {
+  display: block;
+  margin-top: 2px;
+  color: var(--dt-muted);
+  font-size: 0.75rem;
+}
+
+.dt-person-row-meta {
+  display: none;
+  color: var(--dt-faint);
+  font-size: 0.75rem;
+  text-align: right;
+  white-space: nowrap;
+}
+
+@media (min-width: 900px) {
+  .dt-person-row-meta {
+    display: block;
+  }
+}
+
+.dt-person-row-check {
+  display: grid;
+  height: 22px;
+  width: 22px;
+  flex-shrink: 0;
+  place-items: center;
+  border: 1.5px solid var(--dt-border-strong);
+  border-radius: 999px;
+  color: transparent;
+}
+
+.dt-person-row[data-selected='true'] .dt-person-row-check {
+  border-color: var(--dt-primary);
+  background: var(--dt-primary);
+  color: #fff;
+}
+
+.dt-person-row-check svg {
+  height: 13px;
+  width: 13px;
+}
+
+/* ============================================= aplicación de instrumento == */
+
+/*
+ * Tres columnas: qué unidad se aplica,
+la unidad en sí y su ficha. La lista de
+ * subtests a la izquierda es navegación real —se salta a cualquiera— y a la
+ * vez el mapa del avance.
+ */
+
+.dt-apply {
+  display: grid;
+  gap: var(--dt-space-5);
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+}
+
+@media (min-width: 1000px) {
+  .dt-apply {
+    grid-template-columns: 216px minmax(0, 1fr);
+  }
+}
+
+@media (min-width: 1360px) {
+  .dt-apply {
+    grid-template-columns: 216px minmax(0, 1fr) 280px;
+  }
+}
+
+.dt-apply-aside {
+  min-width: 0;
+}
+
+.dt-unit-nav {
+  display: flex;
+  gap: var(--dt-space-1);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.dt-unit-nav::-webkit-scrollbar {
+  display: none;
+}
+
+@media (min-width: 1000px) {
+  .dt-unit-nav {
+    display: grid;
+    gap: 2px;
+  }
+}
+
+.dt-unit-item {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  gap: var(--dt-space-2);
+  border: 0;
+  border-radius: var(--dt-radius-sm);
+  background: transparent;
+  padding: var(--dt-space-2) var(--dt-space-3);
+  color: var(--dt-text-soft);
+  font-family: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+@media (min-width: 1000px) {
+  .dt-unit-item {
+    white-space: normal;
+    line-height: 1.3;
+  }
+}
+
+.dt-unit-item:hover {
+  background: var(--dt-primary-tint);
+}
+
+.dt-unit-item[aria-current='true'] {
+  background: var(--dt-primary-soft);
+  color: var(--dt-primary-strong);
+}
+
+.dt-unit-index {
+  display: grid;
+  height: 22px;
+  width: 22px;
+  flex-shrink: 0;
+  place-items: center;
+  border: 1.5px solid var(--dt-border-strong);
+  border-radius: 999px;
+  background: var(--dt-surface);
+  color: var(--dt-faint);
+  font-size: 0.625rem;
+  font-weight: 700;
+}
+
+.dt-unit-index svg {
+  height: 12px;
+  width: 12px;
+}
+
+.dt-unit-item[data-recorded='true'] .dt-unit-index {
+  border-color: var(--dt-success);
+  background: var(--dt-success);
+  color: #fff;
+}
+
+.dt-unit-item[aria-current='true'] .dt-unit-index {
+  border-color: var(--dt-primary);
+  background: var(--dt-primary);
+  color: #fff;
+}
+
+/* ================================================================ resultados */
+
+.dt-results {
+  display: grid;
+  gap: var(--dt-space-5);
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+}
+
+/*
+ * Dos columnas: resultado y protocolo. El baremo baja a lo ancho porque es
+ * tabla de referencia y no debe robarle sitio a los datos del caso: apretado
+ * en una tercera columna, el protocolo perdía su última columna por el borde.
+ */
+@media (min-width: 1040px) {
+  .dt-results {
+    grid-template-columns: 226px minmax(0, 1fr);
+  }
+
+  .dt-results-scale {
+    grid-column: 1 / -1;
+  }
+}
+
+/* La tercera columna sólo aparece cuando el protocolo cabe entero. */
+@media (min-width: 1520px) {
+  .dt-results {
+    grid-template-columns: 226px minmax(0, 1fr) 258px;
+  }
+
+  .dt-results-scale {
+    grid-column: auto;
+  }
+}
+
+/* Tumbado a lo ancho, el baremo se lee mejor en fila que en pila. */
+.dt-results-scale-list {
+  display: grid;
+  gap: var(--dt-space-2);
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dt-score {
+  text-align: center;
+}
+
+.dt-score-value {
+  margin: 0;
+  font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
+  font-size: 2.75rem;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  color: var(--dt-primary);
+}
+
+.dt-score-caption {
+  margin: var(--dt-space-2) 0 0;
+  color: var(--dt-faint);
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+/* ================================================== emisión del informe === */
+
+/*
+ * Dos columnas: a la izquierda qué falta para poder emitir,
+a la derecha quién
+ * firma. Son las dos preguntas del cierre y ninguna debe esconderse debajo de
+ * la otra.
+ */
+
+.dt-issue {
+  display: grid;
+  gap: var(--dt-space-5);
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+}
+
+@media (min-width: 1000px) {
+  .dt-issue {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+
+.dt-gate {
+  display: grid;
+  gap: var(--dt-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dt-gate-item {
+  display: grid;
+  align-items: start;
+  gap: var(--dt-space-3);
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  border: 1px solid var(--dt-border);
+  border-radius: var(--dt-radius-md);
+  background: var(--dt-surface);
+  padding: var(--dt-space-3) var(--dt-space-4);
+}
+
+.dt-gate-item[data-complete='true'] {
+  border-color: rgba(15, 157, 99, 0.28);
+  background: var(--dt-success-soft);
+}
+
+.dt-gate-mark {
+  display: grid;
+  height: 24px;
+  width: 24px;
+  place-items: center;
+  border-radius: 999px;
+  background: #e8edf5;
+  color: var(--dt-faint);
+}
+
+.dt-gate-item[data-complete='true'] .dt-gate-mark {
+  background: var(--dt-success);
+  color: #fff;
+}
+
+.dt-gate-mark svg {
+  height: 14px;
+  width: 14px;
+}
+
+.dt-gate-body strong {
+  display: block;
+  color: var(--dt-text);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.dt-gate-body small {
+  display: block;
+  margin-top: 2px;
+  color: var(--dt-muted);
+  font-size: 0.75rem;
+}
+
+/* ==================================================== visor del documento = */
+
+.dt-viewer {
+  overflow: hidden;
+  border: 1px solid var(--dt-border);
+  border-radius: var(--dt-radius-lg);
+  background: var(--dt-surface);
+}
+
+.dt-viewer-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--dt-space-3);
+  border-bottom: 1px solid var(--dt-border);
+  background: var(--dt-surface-muted);
+  padding: var(--dt-space-2) var(--dt-space-3);
+}
+
+.dt-viewer-name {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: var(--dt-space-2);
+  color: var(--dt-text-soft);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.dt-viewer-name span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dt-viewer-tools {
+  display: flex;
+  align-items: center;
+  gap: var(--dt-space-1);
+}
+
+.dt-viewer-zoom {
+  min-width: 52px;
+  color: var(--dt-text-soft);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.dt-viewer-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  background: #eef1f6;
+}
+
+@media (min-width: 900px) {
+  .dt-viewer-body {
+    grid-template-columns: 148px minmax(0, 1fr);
+  }
+}
+
+.dt-viewer-thumbs {
+  display: none;
+  gap: var(--dt-space-3);
+  max-height: 72vh;
+  overflow-y: auto;
+  border-right: 1px solid var(--dt-border);
+  background: var(--dt-surface-muted);
+  padding: var(--dt-space-3);
+}
+
+@media (min-width: 900px) {
+  .dt-viewer-thumbs {
+    display: grid;
+    align-content: start;
+  }
+}
+
+.dt-viewer-thumb {
+  display: grid;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.dt-viewer-thumb-sheet {
+  display: grid;
+  aspect-ratio: 1 / 1.414;
+  align-content: start;
+  gap: 3px;
+  overflow: hidden;
+  border: 1.5px solid var(--dt-border-strong);
+  border-radius: 4px;
+  background: #fff;
+  padding: 7px 6px;
+}
+
+.dt-viewer-thumb[aria-current='true'] .dt-viewer-thumb-sheet {
+  border-color: var(--dt-primary);
+  box-shadow: 0 0 0 2px var(--dt-primary-soft);
+}
+
+.dt-viewer-thumb-line {
+  height: 2px;
+  border-radius: 999px;
+  background: #dbe2ec;
+}
+
+.dt-viewer-thumb-line[data-strong='true'] {
+  background: var(--dt-primary);
+}
+
+.dt-viewer-thumb-label {
+  color: var(--dt-faint);
+  font-size: 0.625rem;
+  font-weight: 700;
+}
+
+.dt-viewer-thumb[aria-current='true'] .dt-viewer-thumb-label {
+  color: var(--dt-primary-strong);
+}
+
+.dt-viewer-doc {
+  max-height: 72vh;
+  overflow-y: auto;
+  padding: var(--dt-space-5);
+}
+
+/* ==================================================== detalles compartidos = */
+
+.dt-entry-handle {
+  display: grid;
+  height: 26px;
+  width: 22px;
+  place-items: center;
+  color: var(--dt-faint);
+  cursor: grab;
+}
+
+.dt-entry-handle svg {
+  height: 15px;
+  width: 15px;
+}
+
+.dt-inline-fields {
+  display: grid;
+  gap: var(--dt-space-4);
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 760px) {
+  .dt-inline-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1180px) {
+  .dt-inline-fields[data-columns='3'] {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* Campo que ocupa la fila entera dentro de una rejilla de formulario. */
+.dt-span-full {
+  grid-column: 1 / -1;
+}
+
+/* ------------------------------------------------ reparto por desempeño === */
+
+/*
+ * Tres cifras antes del detalle: cuántas áreas caen bajo, medio y alto. Es la
+ * lectura que el profesional hace primero; el gráfico de barras la sostiene.
+ */
+.dt-tally {
+  display: grid;
+  gap: var(--dt-space-2);
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dt-tally-item {
+  display: flex;
+  align-items: center;
+  gap: var(--dt-space-3);
+  border: 1px solid var(--dt-border);
+  border-left-width: 3px;
+  border-radius: var(--dt-radius-sm);
+  background: var(--dt-surface);
+  padding: var(--dt-space-2) var(--dt-space-3);
+}
+
+.dt-tally-item[data-band='low'] {
+  border-left-color: var(--dt-danger);
+}
+
+.dt-tally-item[data-band='mid'] {
+  border-left-color: var(--dt-warning);
+}
+
+.dt-tally-item[data-band='high'] {
+  border-left-color: var(--dt-success);
+}
+
+.dt-tally-count {
+  font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
+  font-size: 1.375rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--dt-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.dt-tally-label {
+  color: var(--dt-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+/* Aviso de campo: algo inusual que no impide continuar. No usa el rojo del
+   error para no confundir «revisa esto» con «esto está mal». */
+.dt-field-warning {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--dt-warning);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.dt-field-warning svg {
+  height: 13px;
+  width: 13px;
+  flex-shrink: 0;
+}
