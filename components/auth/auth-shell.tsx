@@ -37,7 +37,7 @@ function BrandHeader() {
       <Link href="/" className="auth-brand-mark" aria-label="Detection-test">
         <DetectionEmblem className="h-14 w-14" />
         <span>
-          <strong>Detection</strong>
+          <strong>Detection-<span className="text-cyan">test</span></strong>
           <small>EVALUACIÓN · ANÁLISIS · INCLUSIÓN</small>
         </span>
       </Link>

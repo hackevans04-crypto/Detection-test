@@ -24,8 +24,8 @@ export function AppSidebar({ active }: { active?: string }) {
       <div className="flex items-center gap-3 px-5 py-5">
         <DetectionEmblem className="size-12" />
         <div>
-          <h1 className="font-display text-xl font-bold">Detection-test</h1>
-          <p className="text-xs leading-5 text-blue-100">Sistema de Evaluación Psicopedagógica Integral</p>
+          <h1 className="font-display text-xl font-bold">Detection-<span className="text-cyan">test</span></h1>
+          <p className="text-[9px] font-medium uppercase tracking-[0.18em] text-blue-100/80">Evaluación · Análisis · Inclusión</p>
         </div>
       </div>
 

@@ -1,4 +1,5 @@
 import { execFileSync, spawn } from 'node:child_process'
+import fs from 'node:fs'
 import { createConnection } from 'node:net'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
@@ -30,7 +31,10 @@ function findWindowsProjectServer() {
   const script = String.raw`
     $root = $env:DETECTION_PROJECT_ROOT
     $processes = Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" |
-      Where-Object { $_.CommandLine -like "*$root*" -and $_.CommandLine -match 'next\\dist\\server\\lib\\start-server' }
+      Where-Object {
+        $_.CommandLine -like "*$root*" -and
+        $_.CommandLine -match 'next\\dist\\server\\lib\\start-server|next\\dist\\bin\\next.*dev'
+      }
     $result = @(foreach ($process in $processes) {
       Get-NetTCPConnection -State Listen -OwningProcess $process.ProcessId -ErrorAction SilentlyContinue |
         Select-Object -First 1 @{Name='pid';Expression={$process.ProcessId}}, @{Name='port';Expression={$_.LocalPort}}
@@ -78,6 +82,7 @@ if (existing && await portIsOpen(Number(existing.port))) {
   }
 
   await new Promise((resolve) => setTimeout(resolve, 500))
+  fs.rmSync(path.join(projectRoot, '.next'), { recursive: true, force: true })
 }
 
 if (await portIsOpen(port)) {

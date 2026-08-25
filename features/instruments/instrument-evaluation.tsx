@@ -2,7 +2,25 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, CheckCircle2, Download, Save, ShieldAlert } from 'lucide-react'
+import {
+  ArrowLeft,
+  ArrowRight,
+  CalendarDays,
+  CalendarCheck2,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  GraduationCap,
+  IdCard,
+  Mail,
+  MessageSquareText,
+  Save,
+  School,
+  ShieldAlert,
+  UserRound,
+  UserRoundCheck,
+} from 'lucide-react'
 import { getInstrument } from '@/instruments/catalog'
 import { calculateAgeYears, calculateInstrumentResult, validateInstrumentAge } from '@/lib/evaluation-engine'
 import { upsertEvaluation } from '@/lib/local-evaluations'
@@ -41,6 +59,147 @@ const emptyObservation = (): PsychopedagogicalObservation => ({
   psycholinguistic: 'Comprensivo estructurado; articulatorio estructurado; expresivo estructurado',
   notes: '',
 })
+
+type StudentFieldConfig = {
+  key: keyof StudentData
+  label: string
+  placeholder: string
+  icon: typeof UserRound
+  type?: 'text' | 'date' | 'tel' | 'email'
+  required?: boolean
+}
+
+const studentFields: readonly StudentFieldConfig[] = [
+  { key: 'fullName', label: 'Nombres y apellidos', placeholder: 'Escribe el nombre completo', icon: UserRound, required: true },
+  { key: 'birthDate', label: 'Fecha de nacimiento', placeholder: 'Selecciona la fecha', icon: CalendarDays, type: 'date', required: true },
+  { key: 'identification', label: 'Identificación', placeholder: 'Cédula o documento', icon: IdCard },
+  { key: 'institution', label: 'Institución educativa', placeholder: 'Nombre de la institución', icon: School, required: true },
+  { key: 'grade', label: 'Grado o curso', placeholder: 'Ej. 2do EGB', icon: GraduationCap },
+  { key: 'tutor', label: 'Docente tutor', placeholder: 'Nombre del docente', icon: UserRoundCheck },
+  { key: 'representative', label: 'Representante legal', placeholder: 'Nombre del representante', icon: UserRound },
+  { key: 'phone', label: 'Teléfono', placeholder: '099 000 0000', icon: MessageSquareText, type: 'tel' },
+  { key: 'email', label: 'Correo electrónico', placeholder: 'correo@institucion.edu.ec', icon: Mail, type: 'email' },
+  { key: 'evaluationDate', label: 'Fecha de evaluación', placeholder: 'Selecciona la fecha', icon: CalendarCheck2, type: 'date', required: true },
+  { key: 'evaluator', label: 'Evaluador responsable', placeholder: 'Nombre del profesional', icon: UserRoundCheck, required: true },
+  { key: 'reason', label: 'Motivo de evaluación', placeholder: 'Describe brevemente el motivo', icon: MessageSquareText, required: true },
+] as const
+
+const monthNames = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
+const weekDays = ['LU', 'MA', 'MI', 'JU', 'VI', 'SA', 'DO']
+
+function isoDateParts(value: string) {
+  const [year, month, day] = value.split('-').map(Number)
+  return year && month && day ? { year, month: month - 1, day } : null
+}
+
+function formatDate(value: string) {
+  const parts = isoDateParts(value)
+  return parts ? `${String(parts.day).padStart(2, '0')}/${String(parts.month + 1).padStart(2, '0')}/${parts.year}` : ''
+}
+
+function toIsoDate(year: number, month: number, day: number) {
+  return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+}
+
+function StudentDateField({
+  field,
+  value,
+  onChange,
+}: {
+  field: (typeof studentFields)[number]
+  value: string
+  onChange: (value: string) => void
+}) {
+  const selected = isoDateParts(value)
+  const today = new Date()
+  const [view, setView] = useState({ year: selected?.year ?? today.getFullYear(), month: selected?.month ?? today.getMonth() })
+  const [open, setOpen] = useState(false)
+  const Icon = field.icon
+  const daysInMonth = new Date(view.year, view.month + 1, 0).getDate()
+  const firstDay = (new Date(view.year, view.month, 1).getDay() + 6) % 7
+  const days = Array.from({ length: firstDay + daysInMonth }, (_, index) => index < firstDay ? null : index - firstDay + 1)
+
+  const shiftMonth = (amount: number) => {
+    const next = new Date(view.year, view.month + amount, 1)
+    setView({ year: next.getFullYear(), month: next.getMonth() })
+  }
+
+  return (
+    <label className="evaluation-field">
+      <span className="evaluation-field-label">
+        {field.label}
+        {field.required && <em aria-hidden="true">*</em>}
+      </span>
+      <span className="evaluation-date-wrap">
+        <span className="evaluation-input-wrap">
+          <Icon className="evaluation-input-icon" aria-hidden="true" />
+          <input type="text" value={formatDate(value)} readOnly placeholder={field.placeholder} onClick={() => setOpen(true)} aria-label={field.label} />
+          <button type="button" className="evaluation-date-trigger" onClick={() => setOpen((current) => !current)} aria-label={`Abrir calendario de ${field.label}`}>
+            <CalendarDays aria-hidden="true" />
+          </button>
+        </span>
+        {open && (
+          <span className="evaluation-calendar" role="dialog" aria-label={`Calendario de ${field.label}`}>
+            <span className="evaluation-calendar-header">
+              <strong>{monthNames[view.month]} de {view.year}</strong>
+              <span>
+                <button type="button" onClick={() => shiftMonth(-1)} aria-label="Mes anterior"><ChevronLeft /></button>
+                <button type="button" onClick={() => shiftMonth(1)} aria-label="Mes siguiente"><ChevronRight /></button>
+              </span>
+            </span>
+            <span className="evaluation-calendar-week" aria-hidden="true">{weekDays.map((day) => <b key={day}>{day}</b>)}</span>
+            <span className="evaluation-calendar-grid">
+              {days.map((day, index) => day ? (
+                <button
+                  key={day}
+                  type="button"
+                  className={selected?.year === view.year && selected.month === view.month && selected.day === day ? 'is-selected' : ''}
+                  onClick={() => { onChange(toIsoDate(view.year, view.month, day)); setOpen(false) }}
+                >
+                  {day}
+                </button>
+              ) : <span key={`empty-${index}`} aria-hidden="true" />)}
+            </span>
+            <button type="button" className="evaluation-calendar-today" onClick={() => { onChange(toIsoDate(today.getFullYear(), today.getMonth(), today.getDate())); setView({ year: today.getFullYear(), month: today.getMonth() }); setOpen(false) }}>
+              Hoy
+            </button>
+          </span>
+        )}
+      </span>
+    </label>
+  )
+}
+
+function StudentField({
+  field,
+  value,
+  onChange,
+}: {
+  field: (typeof studentFields)[number]
+  value: string
+  onChange: (value: string) => void
+}) {
+  if (field.type === 'date') return <StudentDateField field={field} value={value} onChange={onChange} />
+  const Icon = field.icon
+  return (
+    <label className="evaluation-field">
+      <span className="evaluation-field-label">
+        {field.label}
+        {field.required && <em aria-hidden="true">*</em>}
+      </span>
+      <span className="evaluation-input-wrap">
+        <Icon className="evaluation-input-icon" aria-hidden="true" />
+        <input
+          type={field.type ?? 'text'}
+          value={value}
+          required={field.required}
+          placeholder={field.placeholder}
+          onChange={(event) => onChange(event.target.value)}
+        />
+      </span>
+    </label>
+  )
+}
 
 function createEvaluation(instrumentId: string, student: StudentData): EvaluationRecord {
   const instrument = getInstrument(instrumentId)!
@@ -163,14 +322,14 @@ export function InstrumentEvaluationClient({ instrumentId }: { instrumentId: str
   }
 
   return (
-    <main className="min-h-svh bg-slate-50 text-slate-950">
-      <div className="mx-auto max-w-7xl px-4 py-6 md:px-6 xl:px-8">
+    <main className="evaluation-page min-h-svh bg-slate-50 text-slate-950">
+      <div className="evaluation-page-shell mx-auto max-w-7xl px-4 py-6 md:px-6 xl:px-8">
         <Link href="/instrumentos" className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700 hover:text-blue-700">
           <ArrowLeft className="size-4" />
           Volver a instrumentos
         </Link>
 
-        <header className="mt-5 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <header className="evaluation-instrument-header mt-5 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-500">{instrument.aplicacion} · {instrument.rangoTexto}</p>
@@ -184,42 +343,40 @@ export function InstrumentEvaluationClient({ instrumentId }: { instrumentId: str
         </header>
 
         {step === 'student' && (
-          <section className="mt-5 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <section className="evaluation-student-card mt-5 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
             <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
               <div>
-                <p className="text-xs font-bold uppercase tracking-[0.2em] text-blue-700">Scrum · Sprint de aplicacion</p>
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-blue-700">Ficha de evaluación</p>
                 <h2 className="text-2xl font-bold">Datos del evaluado</h2>
                 <p className="mt-1 text-sm text-slate-600">Flujo unico de evaluacion: registro, validacion, aplicacion, resultado e informe.</p>
               </div>
               <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700 ring-1 ring-emerald-200">Evaluacion activa</span>
             </div>
-            <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {[
-                ['fullName', 'Nombres y apellidos'], ['birthDate', 'Fecha de nacimiento'], ['identification', 'Identificacion'],
-                ['institution', 'Institucion educativa'], ['grade', 'Grado/curso'], ['tutor', 'Docente tutor'],
-                ['representative', 'Representante legal'], ['phone', 'Telefono'], ['email', 'Correo'],
-                ['evaluationDate', 'Fecha de evaluacion'], ['evaluator', 'Evaluador'], ['reason', 'Motivo de evaluacion'],
-              ].map(([key, label]) => (
-                <label key={key} className="grid gap-2 text-sm font-semibold text-slate-700">
-                  {label}
-                  <input
-                    type={key.toLowerCase().includes('date') ? 'date' : 'text'}
-                    value={String(student[key as keyof StudentData])}
-                    onChange={(event) => setStudent({ ...student, [key]: event.target.value })}
-                    className="h-11 rounded-lg border border-slate-200 bg-white px-3 outline-none focus:border-blue-500"
-                  />
-                </label>
+            <div className="evaluation-fields-grid">
+              {studentFields.map((field) => (
+                <StudentField
+                  key={field.key}
+                  field={field}
+                  value={String(student[field.key as keyof StudentData])}
+                  onChange={(value) => setStudent({ ...student, [field.key]: value })}
+                />
               ))}
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Edad calculada</p>
-                <p className="mt-2 text-2xl font-bold">{student.ageYears || 0} años</p>
+              <div className="evaluation-age-card">
+                <div>
+                  <p className="evaluation-age-kicker">Edad calculada</p>
+                  <p className="evaluation-age-value">{student.ageYears || 0} <span>años</span></p>
+                </div>
+                <CalendarDays aria-hidden="true" />
               </div>
             </div>
-            <label className="mt-4 grid gap-2 text-sm font-semibold text-slate-700">
-              Observaciones iniciales
-              <textarea value={student.initialObservations} onChange={(event) => setStudent({ ...student, initialObservations: event.target.value })} className="min-h-24 rounded-lg border border-slate-200 px-3 py-2 outline-none focus:border-blue-500" />
+            <label className="evaluation-notes-field">
+              <span className="evaluation-field-label"><MessageSquareText aria-hidden="true" /> Observaciones iniciales</span>
+              <textarea value={student.initialObservations} onChange={(event) => setStudent({ ...student, initialObservations: event.target.value })} placeholder="Añade antecedentes u observaciones relevantes..." />
             </label>
-            <button disabled={!requiredReady} onClick={start} className="mt-5 rounded-lg bg-blue-600 px-4 py-2 font-bold text-white disabled:opacity-40">Crear evaluacion</button>
+            <div className="evaluation-form-footer">
+              <p><span>*</span> Campos obligatorios para iniciar la aplicación</p>
+              <button disabled={!requiredReady} onClick={start} className="evaluation-primary-action"><CheckCircle2 className="size-5" /> Crear evaluación <ArrowRight className="evaluation-action-arrow size-5" /></button>
+            </div>
           </section>
         )}
 
