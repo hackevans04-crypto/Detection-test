@@ -4,7 +4,7 @@ import { useFrame } from '@react-three/fiber'
 import { useGLTF } from '@react-three/drei'
 import { useEffect, useMemo, useRef, type MutableRefObject } from 'react'
 import * as THREE from 'three'
-import { PHASE, openingSubjectReveal, smoothstep, smootherstep, type HeroSceneState } from '@/lib/hero/depth'
+import { PHASE, inside, openingSubjectReveal, smoothstep, smootherstep, type HeroSceneState } from '@/lib/hero/depth'
 import {
   ACTORS,
   BRAIN_URL,
@@ -151,9 +151,16 @@ function SupportActor({
   useFrame(() => {
     const signal = sceneState.current
     const directed = signal.director
-    const weight = directed.actorWeights[spec.key] * openingSubjectReveal(signal.progress)
-    if (positionRoot.current) positionRoot.current.visible = weight > 0.002
-    if (weight <= 0.002) return
+    // El podio entrega el plano al túnel justo antes de que la lente atraviese
+    // su geometría. Mantenerlo hasta p=1 convertía sus paredes cercanas en
+    // rectángulos a pantalla completa, sobre todo con el aspect ratio móvil.
+    const portalPass = spec.key === 'platform'
+      ? 1 - smootherstep(inside('PLATFORM', 0.2), inside('PLATFORM', 0.58), signal.progress)
+      : 1
+    const weight = directed.actorWeights[spec.key] * openingSubjectReveal(signal.progress) * portalPass
+    const visibilityFloor = spec.key === 'platform' ? 0.08 : 0.06
+    if (positionRoot.current) positionRoot.current.visible = weight > visibilityFloor
+    if (weight <= visibilityFloor) return
 
     material.opacity = weight * spec.peakOpacity
     material.depthWrite = spec.key === 'platform' && weight > 0.92
@@ -169,7 +176,7 @@ function SupportActor({
     )
     let pop = 0.95 + weight * 0.05
     if (spec.key === 'hud') pop *= 1 + directed.assemblyExplode * 0.18 + directed.portalIntensity * 0.42
-    if (spec.key === 'platform') pop *= 1 + directed.portalIntensity * 0.18
+    if (spec.key === 'platform') pop *= 1 + directed.portalIntensity * 0.08
     animation.current.scale.setScalar(pop)
   })
 
@@ -185,7 +192,6 @@ function SupportActor({
             <mesh
               geometry={measure.geometry}
               material={material}
-              frustumCulled={false}
               renderOrder={STAGE_RENDER_ORDER[spec.key]}
             />
           </group>
@@ -196,74 +202,19 @@ function SupportActor({
 }
 
 /** Internal layers share the BrainAssembly transform and remain depth-occluded. */
-function NestedAssemblyActor({
-  spec, measure, scale, radius, sceneState, source,
-}: {
-  spec: ActorSpec
-  measure: ActorMeasure
-  scale: number
-  radius: number
-  sceneState: SceneStateRef
-  source: THREE.Object3D
-}) {
-  const root = useRef<THREE.Group>(null)
-  const animation = useRef<THREE.Group>(null)
-  const material = useActorMaterial(source, spec.emissive, spec.emissiveIntensity, false, spec.tint, true)
-
-  useFrame(() => {
-    const signal = sceneState.current
-    const directed = signal.director
-    const weight = directed.actorWeights[spec.key] * openingSubjectReveal(signal.progress)
-    if (root.current) root.current.visible = weight > 0.004
-    if (weight <= 0.004) return
-
-    const exposed = 0.12 + directed.assemblyExplode * 0.88
-    material.opacity = weight * spec.peakOpacity * (spec.key === 'energy' ? 1 : exposed)
-    material.depthWrite = false
-    material.emissiveIntensity = spec.emissiveIntensity * (
-      0.7 + directed.innerIntensity * 1.15 + directed.entryIntensity * 0.45 + directed.portalIntensity * 0.7
-    )
-
-    if (root.current) {
-      const handoff = spec.key === 'energy' ? smootherstep(PHASE.INSTITUTION, PHASE.PLATFORM_EXIT, signal.progress) : 0
-      const inverseScale = 1 / Math.max(directed.brainScale, 0.2)
-      const portalY = (-1.24 - directed.brainPosition[1]) * inverseScale
-      const portalZ = -directed.brainPosition[2] * inverseScale
-      root.current.position.set(
-        THREE.MathUtils.lerp(spec.position[0], 0, handoff) * radius,
-        THREE.MathUtils.lerp(spec.position[1], portalY, handoff) * radius,
-        THREE.MathUtils.lerp(spec.position[2], portalZ, handoff) * radius,
-      )
-    }
-    if (animation.current) {
-      animation.current.rotation.set(
-        spec.baseRotation[0],
-        spec.baseRotation[1] + signal.time * spec.spin + signal.progress * spec.spin * 3,
-        spec.baseRotation[2],
-      )
-      const pulse = spec.key === 'energy' ? 1 + Math.sin(signal.time * 2.1) * 0.035 : 1
-      animation.current.scale.setScalar(pulse)
-    }
-  })
-
-  return (
-    <group ref={root} name={`${spec.key}AssemblyLayer`} position={spec.position.map((value) => value * radius) as [number, number, number]}>
-      <group ref={animation}>
-        <group scale={[scale, scale, scale]}>
-          <group position={measure.center.clone().negate()}>
-            <mesh
-              geometry={measure.geometry}
-              material={material}
-              frustumCulled={false}
-              renderOrder={STAGE_RENDER_ORDER[spec.key]}
-            />
-          </group>
-        </group>
-      </group>
-    </group>
-  )
-}
-
+/**
+ * Capa de electricidad neuronal sobre la superficie del cerebro.
+ *
+ * RESTAURADA literalmente desde el commit `bb70767`. Se habia eliminado junto
+ * con el `frustumCulled={false}` de las dos mitades, y esas eran las dos
+ * regresiones del capitulo Inicio: sin esta capa el cerebro pierde el rim, el
+ * barrido y los pulsos que viajan por la superficie —se queda como un modelo
+ * correcto pero apagado—, y sin el `frustumCulled` desaparecia del encuadre en
+ * cuanto la camara se le acercaba, porque three recorta por la esfera
+ * envolvente de una geometria que se ha partido en dos a mano.
+ *
+ * No se ha reinterpretado ni una linea del shader: es el material aprobado.
+ */
 function BrainFresnel({ geometry, sceneState }: { geometry: THREE.BufferGeometry; sceneState: SceneStateRef }) {
   const material = useMemo(() => new THREE.ShaderMaterial({
     uniforms: {
@@ -334,6 +285,97 @@ function BrainFresnel({ geometry, sceneState }: { geometry: THREE.BufferGeometry
   return <mesh geometry={geometry} material={material} scale={1.012} frustumCulled={false} renderOrder={13} />
 }
 
+function NestedAssemblyActor({
+  spec, measure, scale, radius, sceneState, source,
+}: {
+  spec: ActorSpec
+  measure: ActorMeasure
+  scale: number
+  radius: number
+  sceneState: SceneStateRef
+  source: THREE.Object3D
+}) {
+  const root = useRef<THREE.Group>(null)
+  const animation = useRef<THREE.Group>(null)
+  const material = useActorMaterial(source, spec.emissive, spec.emissiveIntensity, false, spec.tint, true)
+  const explodedOffset = useMemo<[number, number, number]>(() => {
+    if (spec.key === 'interior') return [0.18, -0.16, -0.42]
+    if (spec.key === 'neural') return [-0.52, 0.08, 0.14]
+    return [0.06, 0.08, 0.58]
+  }, [spec.key])
+  const explodedRotation = useMemo<[number, number, number]>(() => {
+    if (spec.key === 'interior') return [-0.04, 0.13, 0.07]
+    if (spec.key === 'neural') return [0.02, -0.1, -0.03]
+    return [0.08, 0.22, -0.04]
+  }, [spec.key])
+
+  useFrame(() => {
+    const signal = sceneState.current
+    const directed = signal.director
+    const portalPass = spec.key === 'energy'
+      ? 1 - smootherstep(inside('PLATFORM', 0.32), inside('PLATFORM', 0.66), signal.progress)
+      : 1
+    const weight = directed.actorWeights[spec.key] * openingSubjectReveal(signal.progress) * portalPass
+    // Un GLB casi transparente cuesta exactamente los mismos triángulos que
+    // uno opaco. El reactor entra sólo cuando ya aporta luz visible; antes lo
+    // sostienen el beam y los pulsos instanciados de la plataforma.
+    const visibilityFloor = spec.key === 'energy' ? 0.18 : 0.06
+    if (root.current) root.current.visible = weight > visibilityFloor
+    if (weight <= visibilityFloor) return
+
+    const exposed = 0.12 + directed.assemblyExplode * 0.88
+    material.opacity = weight * spec.peakOpacity * (spec.key === 'energy' ? 1 : exposed)
+    material.depthWrite = false
+    material.emissiveIntensity = spec.emissiveIntensity * (
+      0.7 + directed.innerIntensity * 1.15 + directed.entryIntensity * 0.45 + directed.portalIntensity * 0.7
+    )
+
+    if (root.current) {
+      const handoff = spec.key === 'energy' ? smootherstep(PHASE.INSTITUTION, PHASE.PLATFORM_EXIT, signal.progress) : 0
+      const explode = directed.assemblyExplode
+      const curveArc = Math.sin(explode * Math.PI)
+      const inverseScale = 1 / Math.max(directed.brainScale, 0.2)
+      const portalY = (-1.24 - directed.brainPosition[1]) * inverseScale
+      const portalZ = -directed.brainPosition[2] * inverseScale
+      const explodedX = spec.position[0] + explodedOffset[0] * explode
+      const explodedY = spec.position[1] + explodedOffset[1] * explode + curveArc * (spec.key === 'neural' ? 0.12 : 0.07)
+      const explodedZ = spec.position[2] + explodedOffset[2] * explode + curveArc * (spec.key === 'energy' ? 0.12 : -0.06)
+      root.current.position.set(
+        THREE.MathUtils.lerp(explodedX, 0, handoff) * radius,
+        THREE.MathUtils.lerp(explodedY, portalY, handoff) * radius,
+        THREE.MathUtils.lerp(explodedZ, portalZ, handoff) * radius,
+      )
+    }
+    if (animation.current) {
+      const explode = directed.assemblyExplode
+      const curveTwist = Math.sin(explode * Math.PI) * 0.045
+      animation.current.rotation.set(
+        spec.baseRotation[0] + explodedRotation[0] * explode + curveTwist,
+        spec.baseRotation[1] + signal.time * spec.spin + signal.progress * spec.spin * 3 + explodedRotation[1] * explode,
+        spec.baseRotation[2] + explodedRotation[2] * explode - curveTwist * 0.6,
+      )
+      const pulse = spec.key === 'energy' ? 1 + Math.sin(signal.time * 2.1) * 0.035 : 1
+      animation.current.scale.setScalar(pulse)
+    }
+  })
+
+  return (
+    <group ref={root} name={`${spec.key}AssemblyLayer`} position={spec.position.map((value) => value * radius) as [number, number, number]}>
+      <group ref={animation}>
+        <group scale={[scale, scale, scale]}>
+          <group position={measure.center.clone().negate()}>
+            <mesh
+              geometry={measure.geometry}
+              material={material}
+              renderOrder={STAGE_RENDER_ORDER[spec.key]}
+            />
+          </group>
+        </group>
+      </group>
+    </group>
+  )
+}
+
 export function StageCastActors({
   cast, sceneState, framing,
 }: {
@@ -369,8 +411,10 @@ export function StageCastActors({
     const signal = sceneState.current
     const directed = signal.director
     const time = signal.time
-    const idleWeight = 1 - smootherstep(0.12, 0.3, signal.progress)
-    const livingScale = 1 + Math.sin(time * 1.337) * 0.0055 * idleWeight
+    const idleWeight = 1 - smootherstep(inside('ACTIVATION', 0.67), inside('DISASSEMBLY', 0.73), signal.progress)
+    const livingScale = 1 + (
+      Math.sin(time * 1.337) * 0.0062 + Math.sin(time * 0.53 + 0.8) * 0.0021
+    ) * idleWeight
     // Las capturas y el scroll inverso deben resolver el mismo fotograma sin
     // depender del punto anterior. En interacción normal el director ya aporta
     // inercia y esta capa sólo suaviza la respiración del ensamblaje.
@@ -379,12 +423,12 @@ export function StageCastActors({
     if (assembly.current) {
       const node = assembly.current
       const quiet = 1 - directed.entryIntensity * 0.82
-      const ambientYaw = THREE.MathUtils.degToRad(Math.sin(time * 0.23) * 0.8) * quiet
-      const ambientPitch = THREE.MathUtils.degToRad(Math.sin(time * 0.31) * 0.5) * quiet
+      const ambientYaw = THREE.MathUtils.degToRad(Math.sin(time * 0.28) * 1.4) * quiet
+      const ambientPitch = THREE.MathUtils.degToRad(Math.sin(time * 0.37) * 0.8) * quiet
       node.rotation.y = THREE.MathUtils.lerp(node.rotation.y, directed.brainRotation[1] + ambientYaw + signal.pointerX * 0.012 * quiet, damping)
       node.rotation.x = THREE.MathUtils.lerp(node.rotation.x, directed.brainRotation[0] + ambientPitch - signal.pointerY * 0.008 * quiet, damping)
       node.rotation.z = THREE.MathUtils.lerp(node.rotation.z, directed.brainRotation[2], damping)
-      const float = Math.sin(time * 0.42) * 0.016 + Math.sin(time * 1.31) * 0.004
+      const float = Math.sin(time * 0.42) * 0.02 + Math.sin(time * 1.31) * 0.005
       node.position.set(
         directed.brainPosition[0] * radius,
         (directed.brainPosition[1] + float * quiet) * radius,
@@ -420,12 +464,13 @@ export function StageCastActors({
     const alpha = directed.actorWeights.brain * openingSubjectReveal(signal.progress)
     brainMaterial.opacity = alpha
     brainMaterial.depthWrite = alpha > 0.8
+    assembly.current?.getWorldPosition(worldCenter)
+    const distance = state.camera.position.distanceTo(worldCenter)
+
     brainMaterial.emissiveIntensity = (
       0.055 + directed.hudIntensity * 0.07 + directed.scannerIntensity * 0.16 + directed.innerIntensity * 0.05
     ) * (0.97 + Math.sin(time * 1.11) * 0.03)
 
-    assembly.current?.getWorldPosition(worldCenter)
-    const distance = state.camera.position.distanceTo(worldCenter)
     signal.cameraDistanceR = distance / radius
     signal.brainScreenHeight = (BRAIN_WORLD_HEIGHT * directedScale) / (2 * halfHeightAt(Math.max(distance, 0.001)))
     signal.brainScale = brainScale * directedScale * livingScale
@@ -515,12 +560,12 @@ export function LightRig({ cast, sceneState, framing }: { cast: StageCast; scene
     const cameraAzimuth = Math.atan2(signal.cameraPosition[0] - framing.stageX, signal.cameraPosition[2])
 
     if (key.current) {
-      key.current.intensity = directed.keyLightIntensity * (0.975 + Math.sin(signal.time * 0.47) * 0.025)
+      key.current.intensity = directed.keyLightIntensity * (0.95 + Math.sin(signal.time * 0.47) * 0.05)
       const angle = cameraAzimuth - THREE.MathUtils.degToRad(41)
       key.current.position.set(Math.sin(angle) * radius * 3.9, radius * 2.4, Math.cos(angle) * radius * 3.9)
     }
     if (rim.current) {
-      rim.current.intensity = directed.rimLightIntensity * (0.94 + Math.sin(signal.time * 0.61 + 1.4) * 0.06)
+      rim.current.intensity = directed.rimLightIntensity * (0.9 + Math.sin(signal.time * 0.61 + 1.4) * 0.1)
       const angle = cameraAzimuth + THREE.MathUtils.degToRad(118 + reveal * 22)
       rim.current.position.set(Math.sin(angle) * radius * 3.4, radius * 1.5, Math.cos(angle) * radius * 3.4)
     }
@@ -528,7 +573,10 @@ export function LightRig({ cast, sceneState, framing }: { cast: StageCast; scene
     if (accent.current) {
       // La luz exploradora ya recorre el cerebro en reposo. Al avanzar se
       // mezcla sin salto con la posición dirigida de cada plano.
-      const orbitAngle = signal.time * THREE.MathUtils.lerp(0.13, 0.09, reveal)
+      // 0,68 rad/s son ~9,2 s por vuelta. A 0,18 el periodo era de 35 s y en
+      // los primeros diez segundos la luz apenas recorría un tercio de vuelta:
+      // los brillos sobre los pliegues salían casi idénticos en t=0, t=4 y t=8.
+      const orbitAngle = signal.time * THREE.MathUtils.lerp(0.68, 0.16, reveal)
       const x = directed.accentLightPosition[0]
       const z = directed.accentLightPosition[2]
       accent.current.position.set(
@@ -537,7 +585,7 @@ export function LightRig({ cast, sceneState, framing }: { cast: StageCast; scene
         x * Math.sin(orbitAngle) + z * Math.cos(orbitAngle),
       )
       accent.current.color.lerpColors(cyanAccent, violetAccent, directed.neuralIntensity * 0.75)
-      accent.current.intensity = (0.82 + directed.hudIntensity * 0.62 + directed.innerIntensity * 0.55 + Math.sin(signal.time * 0.9) * 0.12) * radius
+      accent.current.intensity = (0.86 + directed.hudIntensity * 0.62 + directed.innerIntensity * 0.55 + Math.sin(signal.time * 0.9) * 0.18) * radius
     }
     if (scan.current) {
       scan.current.intensity = directed.scannerIntensity * 2.6 * radius

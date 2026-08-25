@@ -6,25 +6,26 @@ import { chromium } from '@playwright/test'
 /**
  * Render determinista del capítulo completo. Cada imagen espera dos frames de
  * Three.js, por lo que no pierde fases aunque el navegador headless no alcance
- * tiempo real. Después se codifica a 1080p, 30 fps y diez segundos exactos.
+ * tiempo real. Después se codifica a 1080p, 30 fps y doce segundos exactos.
  *
  *   node scripts/hero-video.mjs [fotogramas fuente]
  *   HERO_DEBUG=1 node scripts/hero-video.mjs [fotogramas fuente]
  */
 const BASE = process.env.HERO_BASE ?? 'http://localhost:3000'
 const DEBUG_SCENE = process.env.HERO_DEBUG === '1'
-const DURATION_SECONDS = Number(process.env.HERO_DURATION ?? 10)
-const FRAMES = Number(process.argv[2] ?? process.env.HERO_FRAMES ?? (DEBUG_SCENE ? 72 : 120))
+const IDLE_SCENE = process.env.HERO_IDLE === '1'
+const DURATION_SECONDS = Number(process.env.HERO_DURATION ?? (IDLE_SCENE ? 5 : 12))
+const FRAMES = Number(process.argv[2] ?? process.env.HERO_FRAMES ?? (IDLE_SCENE ? 90 : DEBUG_SCENE ? 96 : 180))
 const SOURCE_FPS = FRAMES / DURATION_SECONDS
 const WIDTH = 1920
 const HEIGHT = 1080
 const FRAME_EXTENSION = process.env.HERO_FRAME_FORMAT === 'png' ? 'png' : 'jpg'
-const FRAME_DIR = path.join(process.cwd(), 'tmp', DEBUG_SCENE ? 'video-frames-debug' : 'video-frames-final')
+const FRAME_DIR = path.join(process.cwd(), 'tmp', IDLE_SCENE ? 'video-frames-idle' : DEBUG_SCENE ? 'video-frames-debug' : 'video-frames-final')
 const OUT = path.join(
   process.cwd(),
   'tmp',
   'hero-shots',
-  DEBUG_SCENE ? 'immersive-brain-debug.webm' : 'immersive-brain-journey.webm',
+  IDLE_SCENE ? 'living-brain-idle.webm' : DEBUG_SCENE ? 'immersive-brain-debug.webm' : 'immersive-brain-journey.webm',
 )
 
 if (!Number.isFinite(FRAMES) || FRAMES < 12) throw new Error('Se requieren al menos 12 fotogramas fuente.')
@@ -53,12 +54,23 @@ await page.waitForFunction('window.__heroReady === true')
 await page.evaluate(() => document.fonts.ready)
 
 const started = Date.now()
-console.log(`Renderizando ${DEBUG_SCENE ? 'prueba técnica' : 'película final'} · ${FRAMES} frames fuente · ${WIDTH}x${HEIGHT}`)
+console.log(`Renderizando ${IDLE_SCENE ? 'cerebro vivo en reposo' : DEBUG_SCENE ? 'prueba técnica' : 'película final'} · ${FRAMES} frames fuente · ${WIDTH}x${HEIGHT}`)
 for (let index = 0; index < FRAMES; index += 1) {
   const time = index / Math.max(FRAMES - 1, 1)
-  // 350 ms de lectura al abrir y cerrar, sin sacrificar ninguna fase central.
-  const progress = time <= 0.035 ? 0 : time >= 0.965 ? 1 : (time - 0.035) / 0.93
+  const seconds = time * DURATION_SECONDS
+  // El recorrido central sigue siendo uniforme. Sólo hay claqueta al inicio y
+  // un segundo de hold final para que la entrega espacial al portal se lea.
+  const startHold = 0.35
+  const endHold = 1
+  const progress = IDLE_SCENE
+    ? 0
+    : seconds <= startHold
+      ? 0
+      : seconds >= DURATION_SECONDS - endHold
+        ? 1
+        : (seconds - startHold) / (DURATION_SECONDS - startHold - endHold)
   await page.evaluate((value) => window.__heroSetProgress(value), progress)
+  await page.evaluate((value) => window.__heroSetTime(value), time * DURATION_SECONDS)
   await page.evaluate(() => new Promise((resolve) => {
     requestAnimationFrame(() => requestAnimationFrame(resolve))
   }))

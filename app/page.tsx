@@ -1,4 +1,6 @@
 import { Navbar } from '@/components/landing/navbar'
+import { SectionRail } from '@/components/landing/section-rail'
+import { HeroBoot } from '@/components/home/hero-boot'
 import { HomeHero } from '@/components/home/home-hero'
 import { SmoothScroll } from '@/components/home/smooth-scroll'
 import { PlatformSection } from '@/components/landing/platform-section'
@@ -12,7 +14,9 @@ import { Footer } from '@/components/landing/footer'
 export default function Page() {
   return (
     <>
+      <HeroBoot />
       <Navbar />
+      <SectionRail />
       <SmoothScroll />
       <main>
         <HomeHero />

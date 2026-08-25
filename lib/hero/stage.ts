@@ -244,120 +244,17 @@ export function measureActor(scene: THREE.Object3D, crop?: { aboveY?: number; in
 
 /* ------------------------------------------------------------------ cámara */
 
-/**
- * Distancia mínima cámara → centro del cerebro, en múltiplos del radio.
- *
- * Es un tope duro, no una preferencia. Por debajo de 2,1 R el sujeto deja de
- * caber en el encuadre y los dos hemisferios se convierten en dos paredes: se
- * pierde la silueta y con ella la lectura de qué se está mirando. Hay una
- * aserción en desarrollo que salta si alguna curva lo viola.
- */
-export const MIN_CAMERA_DISTANCE_R = 2.1
+/*
+  Aquí vivían MIN_CAMERA_DISTANCE_R, MAX_BRAIN_SCREEN_HEIGHT, CAMERA_ORBIT,
+  CAMERA_TARGET y closestOrbitFactor: dos curvas de veintiún nudos comentadas al
+  detalle, dos límites de encuadre y una función que los verificaba.
 
-/**
- * Altura aparente máxima del cerebro, como fracción del alto del viewport.
- *
- * El encuadre bueno vive entre 0,45 y 0,60; 0,68 es el límite que no se cruza
- * ni en el punto más cercano. Con `BRAIN_WORLD_HEIGHT` y `STAGE_FOV` fijos la
- * fracción es sólo función de la distancia, así que esto se traduce en un
- * factor mínimo para `CAMERA_ORBIT` y se puede comprobar sin renderizar.
- */
-export const MAX_BRAIN_SCREEN_HEIGHT = 0.68
-
-/**
- * La cámara orbita alrededor del cerebro y **nunca entra en él**.
- *
- * Cada punto de la curva es (azimut°, elevación°, factor de distancia), y los
- * veintiún nudos están repartidos uniformemente entre p=0 y p=1 —uno cada
- * 0,05—, que es como `CatmullRomCurve3` parametriza `getPoint`.
- *
- * El factor no baja de 0,83. A distancia base el cerebro ocupa el 44 % del alto
- * del viewport, así que 0,83 lo deja en el 53 %: dentro de la banda buena y
- * lejos del 68 % que es el techo. La versión anterior bajaba a 0,12 y metía la
- * cámara entre los hemisferios; lo que se ganaba en espectáculo se perdía en
- * comprensión, porque a esa distancia el objeto ya no se reconoce.
- *
- * El volumen no lo da acercarse, lo da **el recorrido lateral**: entre p=0,30 y
- * p=0,50 el azimut cruza de −8,9° a +7,8°, que a esta distancia son ±0,8 R de
- * desplazamiento en X. El cerebro cambia de cara, la plataforma gira bajo él y
- * las nueve capas del fondo se desplazan cada una lo que le toca por su Z.
- */
-export const CAMERA_ORBIT = new THREE.CatmullRomCurve3([
-  new THREE.Vector3(0, 0, 1), //          0.00  plano de situación
-  new THREE.Vector3(-0.4, 0.1, 0.998), // 0.05
-  new THREE.Vector3(-1, 0.3, 0.993), //   0.10  respira, nada más
-  new THREE.Vector3(-1.8, 0.6, 0.986), // 0.15
-  new THREE.Vector3(-3.4, 1.2, 0.957), // 0.20  activación: dolly corto
-  new THREE.Vector3(-5.8, 1.9, 0.907), // 0.25
-  new THREE.Vector3(-8.9, 2.6, 0.870), //0.30  arranca la órbita en −0,8 R
-  new THREE.Vector3(-6, 2.2, 0.856), //   0.35
-  new THREE.Vector3(-1, 1.5, 0.846), //   0.40  cruza el frente
-  new THREE.Vector3(4.5, 0.9, 0.838), //  0.45
-  new THREE.Vector3(7.8, 0.6, 0.834), //  0.50  fin de la órbita en +0,7 R
-  new THREE.Vector3(8.6, 0.5, 0.831), //  0.55  información: casi estable
-  new THREE.Vector3(9, 0.4, 0.830), //    0.60
-  new THREE.Vector3(8.4, 0.3, 0.833), //  0.65
-  new THREE.Vector3(6.8, 0.6, 0.862), //  0.70  síntesis: retrocede un 6 %
-  new THREE.Vector3(4.6, 1, 0.895), //    0.75
-  new THREE.Vector3(2.6, 1.2, 0.936), //  0.80  institución: cede sitio
-  new THREE.Vector3(1.4, 1, 0.962), //    0.85
-  new THREE.Vector3(0.6, -0.8, 0.966), // 0.90  empieza el descenso
-  new THREE.Vector3(0.2, -3.4, 0.986), // 0.95
-  new THREE.Vector3(0, -6.2, 1.012), //   1.00  encarando la plataforma
-], false, 'catmullrom', 0.5)
-
-/**
- * Desplazamiento del punto mirado, en múltiplos del radio del cerebro.
- *
- * Entre 0,46 y 0,68 es esta curva —y casi sólo ella— la que trabaja: la cámara
- * se queda quieta y lo que se mueve es la mirada, hacia cada uno de los cuatro
- * conceptos por turno. Es la diferencia entre una cámara que examina un objeto
- * y una que se pasea alrededor.
- *
- * En el último tramo baja hasta −1,30 R, que es donde está el núcleo del podio:
- * la toma final no es el cerebro desvaneciéndose, es un descenso hacia la
- * plataforma del capítulo siguiente.
- */
-export const CAMERA_TARGET = new THREE.CatmullRomCurve3([
-  new THREE.Vector3(0, 0.04, 0), //     0.00
-  new THREE.Vector3(0, 0.04, 0), //     0.05
-  new THREE.Vector3(0, 0.04, 0), //     0.10
-  new THREE.Vector3(0, 0.05, 0), //     0.15
-  new THREE.Vector3(0.01, 0.05, 0), //  0.20
-  new THREE.Vector3(0.02, 0.05, 0), //  0.25
-  new THREE.Vector3(0.02, 0.05, 0), //  0.30
-  new THREE.Vector3(0.01, 0.04, 0), //  0.35
-  new THREE.Vector3(0, 0.04, 0), //     0.40
-  new THREE.Vector3(-0.05, 0.07, 0), // 0.45
-  new THREE.Vector3(-0.11, 0.09, 0), // 0.50  evaluación · arriba izquierda
-  new THREE.Vector3(0.11, 0.08, 0), //  0.55  análisis · arriba derecha
-  new THREE.Vector3(-0.1, -0.09, 0), // 0.60  acompañamiento · abajo izquierda
-  new THREE.Vector3(0.1, -0.08, 0), //  0.65  inclusión · abajo derecha
-  new THREE.Vector3(0, -0.02, 0), //    0.70  síntesis: vuelve al centro
-  new THREE.Vector3(0, 0, 0), //        0.75
-  new THREE.Vector3(0, 0, 0), //        0.80  institución
-  new THREE.Vector3(0, -0.07, 0), //    0.85
-  new THREE.Vector3(0, -0.36, 0), //    0.90  la mirada empieza a bajar
-  new THREE.Vector3(0, -0.88, 0), //    0.95
-  new THREE.Vector3(0, -1.3, 0), //     1.00  núcleo de la plataforma
-], false, 'catmullrom', 0.5)
-
-/**
- * Recorre la curva y devuelve el factor de distancia más pequeño.
- *
- * `CatmullRomCurve3` interpola con `tension`, así que puede sobrepasar por
- * debajo del nudo más bajo: comprobar sólo los nudos no basta para saber si la
- * cámara respeta el límite. Lo usa la aserción de desarrollo.
- */
-export function closestOrbitFactor(samples = 400) {
-  const point = new THREE.Vector3()
-  let closest = Infinity
-  for (let i = 0; i <= samples; i++) {
-    CAMERA_ORBIT.getPoint(i / samples, point)
-    if (point.z < closest) closest = point.z
-  }
-  return closest
-}
+  No los consumía nadie. La cámara la resuelve HERO_SHOTS en lib/hero/director.ts
+  a través de createHeroRail, y esas constantes sólo se citaban entre ellas.
+  Borrado tras búsqueda global: código muerto que parece autoritativo es peor
+  que no tener nada, porque el siguiente que lo lea creerá que está tocando la
+  cámara —que es exactamente lo que pasó aquí—.
+*/
 
 export type Framing = {
   brainHeight: number
@@ -435,7 +332,14 @@ export function frameStage(width: number, height: number, brainHeight = BRAIN_WO
  * parallax diferencial, y sale de la perspectiva, no de mover cada capa a mano.
  */
 export const WORLD_Z = {
-  deepStars: -46,
+  /*
+    A -46 el fondo estelar hacía un parallax relativo de 0,136 frente al
+    sujeto: se movía casi un séptimo de lo que se mueve el cerebro y se leía
+    como un papel pintado cercano. A -130 baja a 0,053, que es la relación
+    perceptual pedida para «casi inmóvil». El plano lo escala `coverPlate` a
+    partir de la distancia, así que su tamaño aparente no cambia.
+  */
+  deepStars: -130,
   mountainsFar: -34,
   fogFar: -26,
   techNetwork: -20,

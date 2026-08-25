@@ -1,4 +1,7 @@
 import { createHeroDirectorFrame, type HeroDirectorFrame } from './director'
+import { at, conceptWindow, inside, until } from './timeline'
+
+export { HERO_TIMELINE, at, until, inside, type HeroSegment } from './timeline'
 
 /**
  * Estado y marcas de tiempo del capítulo «Inicio».
@@ -39,12 +42,23 @@ export type HeroSceneState = {
   forcedTime: number | null
   quality: 'high' | 'medium' | 'low'
   dpr: number
+  /** Escala de la resolución dinámica del compositor, 0…1. */
+  renderScale: number
   pointerX: number
   pointerY: number
   stageX: number
   stageY: number
   stageRadius: number
   velocity: number
+  /**
+   * Energía del gesto, 0 → 1. Sube deprisa y baja despacio.
+   *
+   * NO toca la narrativa: ni progreso, ni cámara, ni ventanas de texto. Sólo
+   * alimenta efectos secundarios —estelas de las motas de lente, turbulencia de
+   * las micropartículas, velocidad de los pulsos— para que moverse deprisa se
+   * SIENTA distinto de moverse despacio sin cambiar lo que se cuenta.
+   */
+  scrollEnergy: number
   cameraPosition: [number, number, number]
   cameraFov: number
   lookAt: [number, number, number]
@@ -91,6 +105,7 @@ export function createHeroSceneState(): HeroSceneState {
     forcedTime: null,
     quality: 'high',
     dpr: 1,
+    renderScale: 1,
     /** Puntero normalizado a [-0.5, 0.5]. */
     pointerX: 0,
     pointerY: 0,
@@ -101,6 +116,7 @@ export function createHeroSceneState(): HeroSceneState {
     stageRadius: 0.22,
     /** Reacción secundaria normalizada a la velocidad de la rueda. */
     velocity: 0,
+    scrollEnergy: 0,
     cameraPosition: [0, 0, 7.35],
     cameraFov: 38,
     lookAt: [0, 0, 0],
@@ -153,18 +169,18 @@ export function smootherstep(from: number, to: number, value: number) {
 }
 
 /** La cortina atmosférica ocupa el plano inicial y se disuelve con el primer gesto. */
-export const openingCloudVisibility = (progress: number) => 1 - smootherstep(0.025, 0.16, progress)
+export const openingCloudVisibility = (progress: number) => 1 - smootherstep(inside('INTRO', 0.3), until('ACTIVATION'), progress)
 
-/** El reparto 3D nace detrás de la nube; no cambia de modelo, sólo se revela. */
-export const openingSubjectReveal = (progress: number) => 0.14 + smootherstep(0.045, 0.155, progress) * 0.86
+/** El BrainAssembly completo permanece visible desde el primer fotograma. */
+export const openingSubjectReveal = (_progress: number) => 1
 
 /**
  * El paisaje pertenece al exterior. Desaparece antes de cruzar el cerebro,
  * regresa durante el reensamble y vuelve a ceder el plano al portal final.
  */
 export const exteriorVisibility = (progress: number) => Math.max(
-  1 - smootherstep(0.34, 0.47, progress),
-  smootherstep(0.76, 0.83, progress) * (1 - smootherstep(0.925, 0.985, progress)),
+  1 - smootherstep(at('ENTRY'), until('ENTRY'), progress),
+  smootherstep(at('INNER_EXIT'), until('REASSEMBLY'), progress) * (1 - smootherstep(at('PLATFORM'), 0.995, progress)),
 )
 
 /** Traslada `value` del intervalo de entrada al de salida, sin recortar fuera. */
@@ -181,82 +197,134 @@ export const bell = (value: number, from: number, peak: number, to: number) =>
 /* ------------------------------------------------------------------ fases */
 
 /**
- * Marcas del capítulo «01 — Inicio», en fracción del recorrido de scroll.
+ * Marcas del capítulo «01 — Inicio».
  *
- * Son los cortes de la coreografía, no secciones de la web: el indicador
- * lateral permanece en 01 durante todas ellas.
- *
- * La secuencia es observar → aproximarse → orbitar → descubrir → sintetizar →
- * institución → descender. **No hay fase de entrar en el cerebro.** La hubo, y
- * el resultado era un zoom que convertía los dos hemisferios en dos paredes:
- * se perdía la silueta y con ella la lectura de qué se estaba mirando.
+ * Ya no tienen valores propios: son alias legibles de `HERO_TIMELINE`. Los
+ * nombres duplicados se conservan porque hay consumidores con ambas grafías.
  */
 export const PHASE = {
-  /** Plano de situación. La composición aprobada, viva pero tranquila. */
-  APPROACH: 0,
-  ESTABLISH: 0,
-  /** Activación: la escena despierta con un acercamiento corto. */
-  AWAKENING: 0.08,
-  ACTIVATE: 0.08,
-  /** Órbita lateral: es el tramo que demuestra que hay volumen de verdad. */
-  UNLOCK: 0.18,
-  ORBIT: 0.3,
-  /** El cerebro híbrido cede al volumen orgánico completo. */
-  DISASSEMBLY: 0.3,
-  MECHANICAL: 0.3,
-  ENTRY: 0.43,
-  INNER_FLIGHT: 0.56,
-  /** Los cuatro conceptos, alrededor del cerebro. */
-  INFORMATION: 0.7,
-  INFORM: 0.7,
-  /** Síntesis: los cuatro a la vez y la cámara retrocede. */
-  REASSEMBLY: 0.8,
-  SYNTHESIS: 0.8,
-  /** UTEQ + Olbrox, con el cerebro entre ambos. */
-  INSTITUTION: 0.88,
-  /** Descenso hacia la plataforma y entrega al capítulo 02. */
-  PLATFORM_EXIT: 0.95,
-  HANDOFF: 0.95,
-  END: 1,
+  APPROACH: at('INTRO'),
+  ESTABLISH: at('INTRO'),
+  AWAKENING: at('ACTIVATION'),
+  ACTIVATE: at('ACTIVATION'),
+  UNLOCK: at('UNLOCK'),
+  ORBIT: at('DISASSEMBLY'),
+  DISASSEMBLY: at('DISASSEMBLY'),
+  MECHANICAL: at('DISASSEMBLY'),
+  ENTRY: at('ENTRY'),
+  INNER_FLIGHT: at('ARRIVAL'),
+  INFORMATION: at('EVALUATION'),
+  INFORM: at('EVALUATION'),
+  REASSEMBLY: at('REASSEMBLY'),
+  SYNTHESIS: at('REASSEMBLY'),
+  INSTITUTION: at('INSTITUTION'),
+  PLATFORM_EXIT: at('PLATFORM'),
+  HANDOFF: at('PLATFORM'),
+  END: until('PLATFORM'),
 } as const
 
 export type PhaseName = keyof typeof PHASE
 
+/**
+ * Disparo de la impresión por partículas de los logotipos institucionales.
+ *
+ * No son números sueltos: salen de los mismos tramos INSTITUTION y PLATFORM que
+ * ordenan la entrada y la salida de los paneles, así que no pueden desplazarse
+ * por su cuenta si el reparto del capítulo cambia.
+ *
+ * **Son disparadores, no carriles.** `ParticleLogo` no interpola dentro de esta
+ * ventana: la usa como un interruptor con histéresis y después ejecuta la
+ * impresión en el tiempo. El motivo está documentado allí —enganchada al
+ * progreso, la impresión se congelaba a medias en cuanto la rueda se detenía
+ * dentro de la ventana— y de ahí se sigue una consecuencia que importa aquí:
+ * las DOS marcas comparten disparo. Escalonarlas separando sus ventanas dejaba
+ * una impresa y la otra sin empezar en cuanto el usuario paraba entre ambas; el
+ * escalonado vive ahora en el retraso temporal de cada componente.
+ *
+ * El disparo de entrada cae en 0,851 —ya con los paneles montados— y el de
+ * salida en 0,924, con margen para que la nube termine de deshacerse ANTES de
+ * que el bloque se retire en `PLATFORM_EXIT` − 0,006. Al revés, la nube se iría
+ * dentro de la tarjeta y nadie llegaría a verla desaparecer: primero se
+ * descomponen los logotipos, después se van los paneles.
+ */
+export const LOGO_PRINT = {
+  print: [inside('INSTITUTION', -0.16), inside('INSTITUTION', 0.14)],
+  dissolve: [inside('PLATFORM', -0.7), inside('PLATFORM', -0.4)],
+} as const satisfies Record<string, readonly [number, number]>
+
 /** Duración de un tramo, para pasarla como `duration` a los tweens. */
 export const span = (from: PhaseName, to: PhaseName) => PHASE[to] - PHASE[from]
 
-/**
- * Ventanas de los cuatro conceptos, encadenadas dentro del tramo de
- * información. Las comparten el texto DOM y sus nodos 3D, para que se
- * enciendan exactamente en el mismo punto del recorrido.
- */
 export const CONCEPT_WINDOWS = [
-  [0.58, 0.625],
-  [0.625, 0.67],
-  [0.67, 0.715],
-  [0.715, 0.76],
+  conceptWindow('EVALUATION'),
+  conceptWindow('ANALYSIS'),
+  conceptWindow('SUPPORT'),
+  conceptWindow('INCLUSION'),
 ] as const
+
 
 /**
  * Constante de amortiguación del progreso, en segundos.
  *
  * El scroll pide `targetProgress` y la escena lo persigue con
- * `1 - exp(-dt / τ)`. Con τ = 0,072 el 95 % del recorrido se cubre en ~215 ms:
- * hay peso, pero la escena responde al gesto. El valor anterior equivalía a
- * más de medio segundo y se sentía como viscosidad, no como inercia.
+ * `1 - exp(-dt / τ)`, que es independiente de los fotogramas por segundo.
+ *
+ * Va en serie con el suavizado de Lenis, así que las dos constantes se
+ * suman en la sensación. Con Lenis ya corregido a τ ≈ 75 ms, éste baja a 32
+ * para que el total quede en el entorno de los 110 ms y el 90 % del
+ * recorrido se cubra en poco más de 250 ms. El peso cinematográfico lo pone
+ * el reparto del capítulo, no la viscosidad del control.
  */
-export const PROGRESS_DAMPING = 0.06
+export const PROGRESS_DAMPING = 0.032
 
 /**
  * Longitud del capítulo en múltiplos de viewport.
  *
- * ~190vh en escritorio: cuatro a seis gestos de rueda normales. Se probó a
- * 300vh y el efecto fue el contrario del buscado —cada gesto avanzaba tan poco
- * que la secuencia parecía trabada—. Lo que llena un capítulo no es recorrido
- * de scroll, sino cosas que se mueven por unidad de recorrido.
+ * ACTUALIZADO: de 7,7 a 5,6 en escritorio. El número seguía saliendo de la
+ * misma cuenta de legibilidad, pero se había calculado contra una meseta de
+ * lectura de 0,036 y las ventanas de concepto miden hoy 0,0504 —los tramos se
+ * ensancharon al repartir el capítulo—. Con 5,6 vh, esa meseta son 254 px en un
+ * viewport de 900: dos muescas y media de rueda, que sigue siendo más que un
+ * evento y por tanto sigue sin poder saltarse ningún texto.
+ *
+ * Lo que se corrige con esto es la SEGUNDA causa de que el capítulo se sintiera
+ * lento. La primera era el fotograma —el bloom a resolución completa costaba
+ * más que todo lo demás junto— y ésta es la distancia: a 7,7 vh el recorrido
+ * medía 6930 px y volver arriba costaba lo mismo que bajar. El reparto interno
+ * no cambia, sólo la escala.
+ *
+ * El número no es de gusto: sale de las ventanas de texto. Un concepto de
+ * `CONCEPT_WINDOWS` mide 0,06 de progreso y su hold legible 0,036. Con el
+ * capítulo a 1,3 vh el recorrido completo eran 1404 px, así que un tick de
+ * rueda —100 px en Chrome— avanzaba Δp = 0,071: más que la ventana entera del
+ * concepto. Es decir, un solo gesto normal cruzaba entrada, hold y salida y el
+ * texto no llegaba a poder leerse nunca. No era una sensación, era aritmética.
+ *
+ * Despejando al revés: para que el hold de un concepto ocupe tres ticks hacen
+ * falta 100 × 3 / (0,036 × alto de viewport) ≈ 7,7 vh. Ése es el suelo, y de
+ * ahí sale este valor.
+ *
+ * La nota anterior decía que 300vh se había probado y dejaba la secuencia
+ * «trabada». Con esta cuenta delante se entiende por qué no arregló nada: a 3
+ * vh el tick seguía valiendo Δp = 0,031, todavía más de la mitad del hold. El
+ * problema no era la longitud en sí, era que seguía por debajo del mínimo.
+ *
+ * REVISADO. 7,7 vh resolvían la legibilidad pero pedían 83 muescas de rueda
+ * para recorrer el capítulo entero, y eso se siente como que la página no
+ * avanza. La corrección no es sólo acortar —eso roba lectura en la misma
+ * proporción— sino acortar un poco Y hacer la sensibilidad de la rueda
+ * adaptativa en `smooth-scroll`: quien arrastra sostenido recorre, quien da un
+ * toque suelto conserva el grano fino. Ver ahí el porqué.
+ *
+ * Ojo: estirar el recorrido **no** llena por sí solo el tramo de contemplación
+ * inicial. Al alargarlo, el 0 → 0,32 —donde hoy apenas cambia nada— pasa a
+ * ocupar dos viewports y medio. Eso lo tiene que llenar la vida en reposo de la
+ * escena, no el scroll.
  */
 export function chapterLength(width: number) {
-  if (width < 900) return 1.08
-  if (width < 1280) return 1.1
-  return 1.12
+  // En táctil un solo desliz recorre mucho más que un tick de rueda, así que el
+  // mismo umbral de legibilidad se alcanza con menos recorrido.
+  if (width < 901) return 4.4
+  if (width < 1280) return 5.0
+  return 5.6
 }

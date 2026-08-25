@@ -12,7 +12,8 @@ import { chromium } from '@playwright/test'
  */
 const BASE = process.env.HERO_BASE ?? 'http://localhost:3000'
 const DEBUG_SCENE = process.env.HERO_DEBUG === '1'
-const REQUIRED_PROGRESS = [0, 0.08, 0.15, 0.22, 0.30, 0.36, 0.43, 0.48, 0.54, 0.60, 0.66, 0.72, 0.78, 0.84, 0.90, 0.95, 1]
+const REDUCED_SCENE = process.env.HERO_REDUCED === '1'
+const REQUIRED_PROGRESS = [0, 0.08, 0.16, 0.24, 0.32, 0.40, 0.47, 0.55, 0.63, 0.71, 0.79, 0.87, 0.95, 0.98, 1]
 const PROGRESS = process.env.HERO_POINTS
   ? process.env.HERO_POINTS.split(',').map(Number).filter(Number.isFinite)
   : REQUIRED_PROGRESS
@@ -40,7 +41,7 @@ for (const viewport of viewports) {
   const context = await browser.newContext({
     viewport: { width: viewport.width, height: viewport.height },
     deviceScaleFactor: 1,
-    reducedMotion: process.env.HERO_REDUCED === '1' ? 'reduce' : 'no-preference',
+    reducedMotion: REDUCED_SCENE ? 'reduce' : 'no-preference',
   })
   const page = await context.newPage()
   page.on('console', (message) => {
@@ -58,11 +59,13 @@ for (const viewport of viewports) {
   for (const p of PROGRESS) {
     const label = String(Math.round(p * 100)).padStart(3, '0')
     await page.evaluate((value) => window.__heroSetProgress(value), p)
+    await page.evaluate((value) => window.__heroSetTime(value), p * 10)
     // Margen para que cámara, niebla y luces alcancen su valor amortiguado.
     await page.evaluate(() => new Promise((resolve) => {
       requestAnimationFrame(() => requestAnimationFrame(resolve))
     }))
-    const file = path.join(out, `${DEBUG_SCENE ? 'hero-debug' : 'hero'}-${label}-${viewport.name}.png`)
+    const prefix = DEBUG_SCENE ? 'hero-debug' : REDUCED_SCENE ? 'hero-reduced' : 'hero'
+    const file = path.join(out, `${prefix}-${label}-${viewport.name}.png`)
     await page.screenshot({ path: file, timeout: 180_000, animations: 'disabled', caret: 'hide' })
     console.log(`${path.basename(file)}`)
   }

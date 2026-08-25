@@ -64,6 +64,7 @@ const fragmentShader = /* glsl */ `
   uniform float uDensity;
   uniform float uProgress;
   uniform float uDepthFade;
+  uniform float uEvolve;
   uniform float uExit;
   varying vec2 vUv;
 
@@ -95,14 +96,27 @@ const fragmentShader = /* glsl */ `
   void main() {
     float t = uTime;
     vec2 flow = uFlow * t;
-    float coarse = fbm(vUv * uNoise + flow);
-    float fine = fbm(vUv * (uNoise * 2.2) - flow * 0.63 + coarse);
+
+    /*
+      Deriva y evolución son dos cosas distintas.
+
+      Antes las dos salían de uFlow * t, y como uFlow vale 0,012–0,021 el campo
+      de ruido avanzaba un 5 % de una celda en diez segundos: la nube cambiaba
+      de sitio sin cambiar nunca de forma, que es justo lo que la hace leerse
+      como una imagen desplazándose. Este reloj aparte la deforma aunque esté
+      quieta.
+    */
+    float shape = t * uEvolve;
+    float coarse = fbm(vUv * uNoise + flow + vec2(shape * 0.13, shape * -0.09));
+    float fine = fbm(vUv * (uNoise * 2.2) - flow * 0.63 + coarse + vec2(shape * -0.07, shape * 0.11));
+    // Erosión del contorno. Sin esto el interior hierve pero la silueta es fija.
+    float erosion = fbm(vUv * (uNoise * 0.85) + vec2(shape * -0.05, shape * 0.06) + 31.7);
     vec2 warp = vec2(coarse - 0.5, fine - 0.5) * uDistortion;
     warp += vec2(uProgress * uFlow.x * 0.24, uProgress * uFlow.y * 0.16);
     vec4 cloud = texture2D(uTexture, clamp(vUv + warp, 0.001, 0.999));
 
-    float breathing = 0.91 + 0.09 * sin(t * 0.21 + coarse * 5.0);
-    float breakup = smoothstep(0.16, 0.82, cloud.a * (0.72 + fine * 0.55));
+    float breathing = 0.88 + 0.12 * sin(t * 0.42 + coarse * 5.0);
+    float breakup = smoothstep(0.16, 0.82, cloud.a * (0.72 + fine * 0.55) * (0.68 + erosion * 0.72));
     float feather = mix(0.18, 0.075, clamp(uDepthFade, 0.0, 1.0));
     float edge = smoothstep(0.0, feather, vUv.x) * smoothstep(0.0, feather, 1.0 - vUv.x);
     edge *= smoothstep(0.0, feather, vUv.y) * smoothstep(0.0, feather, 1.0 - vUv.y);
@@ -143,6 +157,7 @@ export function FogCard({
       uDensity: { value: density },
       uProgress: { value: 0 },
       uDepthFade: { value: Math.min(depth / 1.5, 1) },
+      uEvolve: { value: 1 },
       uExit: { value: 0 },
     },
     vertexShader,
@@ -178,8 +193,17 @@ export function FogCard({
     // que se lea como un PNG deslizándose.
     const targetX = position[0] + scrollShift[0] * p - signal.pointerX * depth * 0.12
     const targetY = position[1] + scrollShift[1] * p + signal.pointerY * depth * 0.06
-    const gust = Math.sin(signal.time * 0.17 + depth * 2.1) * depth * 0.035
-    const targetWindX = targetX + signal.time * 0.012 * depth + gust
+    /*
+      Viento, no deriva lineal.
+
+      El término anterior era time * 0.012 * depth: para la capa de fondo,
+      0,001 unidades por segundo sobre un plano de 54 de ancho. Invisible. Una
+      oscilación larga recorre distancia de verdad y además no se va nunca del
+      encuadre, cosa que una deriva lineal sí acaba haciendo en una sesión larga.
+    */
+    const wind = Math.sin(signal.time * 0.035 + depth * 2.1) * (0.6 + depth * 1.4)
+    const gust = Math.sin(signal.time * 0.19 + depth * 5.3) * depth * 0.16
+    const targetWindX = targetX + wind + gust
     if (signal.forcedProgress !== null) {
       mesh.current.position.x = targetWindX
       mesh.current.position.y = targetY
@@ -188,7 +212,7 @@ export function FogCard({
       mesh.current.position.x = THREE.MathUtils.lerp(mesh.current.position.x, targetWindX, ease)
       mesh.current.position.y = THREE.MathUtils.lerp(mesh.current.position.y, targetY, ease)
     }
-    const breath = 1 + Math.sin(signal.time * 0.09 + depth) * 0.006
+    const breath = 1 + Math.sin(signal.time * 0.14 + depth) * 0.018
     mesh.current.scale.set(scale[0] * breath, scale[1] / breath, 1)
   })
 

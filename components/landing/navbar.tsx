@@ -2,23 +2,78 @@
 
 import { cn } from '@/lib/utils'
 import { CtaLink } from './cta-link'
-import { navLinks } from '@/data/landing-content'
-import { useActiveSection } from '@/hooks/use-active-section'
+import { navLinks, sectionIndex } from '@/data/landing-content'
+import { useActiveModule } from '@/hooks/use-active-module'
 import { DetectionEmblem } from './visuals/detection-emblem'
 import { ArrowRight, LogIn, Menu, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
-export function Navbar() {
-  const [scrolled, setScrolled] = useState(false)
-  const [open, setOpen] = useState(false)
-  const active = useActiveSection(navLinks.map((l) => l.id))
+type NavState = 'full' | 'compact' | 'immersive'
+
+/**
+ * Estado de la navegación, dictado por el capítulo.
+ *
+ * No escucha el scroll: lo escribe `home-hero` sobre `documentElement` desde el
+ * mismo sitio donde el progreso visible cambia de valor. La barra tenía antes su
+ * propio `scrollY > 24`, que era una segunda línea de tiempo capaz de
+ * contradecir a la escena.
+ */
+function useHeroNavState(): NavState {
+  const [state, setState] = useState<NavState>('full')
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 24)
-    onScroll()
+    const root = document.documentElement
+    const read = () => {
+      const value = root.dataset.heroNav
+      setState(value === 'compact' || value === 'immersive' ? value : 'full')
+    }
+    read()
+    const observer = new MutationObserver(read)
+    observer.observe(root, { attributes: true, attributeFilter: ['data-hero-nav'] })
+    return () => observer.disconnect()
+  }, [])
+
+  return state
+}
+
+/**
+ * El usuario que sube quiere salir: la navegación completa vuelve sin obligarle
+ * a llegar hasta arriba del todo.
+ */
+function useScrollingUp() {
+  const [up, setUp] = useState(false)
+
+  useEffect(() => {
+    let previous = window.scrollY
+    const onScroll = () => {
+      const current = window.scrollY
+      if (Math.abs(current - previous) > 6) {
+        setUp(current < previous && current > 40)
+        previous = current
+      }
+    }
     window.addEventListener('scroll', onScroll, { passive: true })
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
+
+  return up
+}
+
+export function Navbar() {
+  const [open, setOpen] = useState(false)
+  /*
+    El enlace subrayado sale del mismo sitio que el raíl de módulos.
+
+    Antes lo resolvía un observador de intersección propio, que no podía acertar
+    con Plataforma —su ancla mide un píxel— y dejaba «Inicio» subrayado durante
+    todo el capítulo 02, contradiciendo al raíl en pantalla.
+  */
+  const active = sectionIndex[useActiveModule()].id
+  const chapterState = useHeroNavState()
+  const returning = useScrollingUp()
+  // Volver a subir devuelve la barra completa, pero nunca dentro del cerebro:
+  // ahí el mundo manda y la navegación se queda en HUD.
+  const state: NavState = returning && chapterState === 'compact' ? 'full' : chapterState
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
@@ -33,33 +88,38 @@ export function Navbar() {
     }
   }, [open])
 
+  const chapterLabel = state === 'full' ? 'Inicio' : 'Exploración neural'
+  /*
+    Versión corta para pantallas estrechas. En 390 px el rótulo completo se
+    partía en dos líneas y rozaba el wordmark. Se renderizan las dos y elige el
+    CSS, de modo que no hace falta un estado nuevo ni medir el viewport aquí:
+    el sistema de morph del nav queda intacto.
+  */
+  const chapterLabelShort = state === 'full' ? 'Inicio' : 'Exploración'
+
   return (
     <header
-      className={cn(
-        // z-100: el navbar queda fuera del mundo 3D del hero y siempre por
-        // encima de él, de modo que nada del hero se lea a través.
-        'nav-shell fixed inset-x-0 top-0 z-[100] transition-[background-color,border-color,box-shadow,backdrop-filter] duration-300',
-        scrolled
-          ? 'border-b border-border bg-[rgba(3,15,30,0.92)] shadow-[0_8px_40px_-24px_rgba(8,121,249,0.6)] backdrop-blur-[18px]'
-          : 'border-b border-transparent bg-transparent',
-      )}
+      // z-100: la navegación queda por encima del mundo 3D, pero en compacto e
+      // inmersivo deja de ser una barra de borde a borde y no lo corta.
+      className={cn('nav-shell fixed inset-x-0 top-0 z-[100]')}
+      data-state={state}
     >
-      <div className="mx-auto flex h-20 max-w-[1440px] items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
-        {/* Brand */}
-        <a href="#inicio" className="nav-brand flex shrink-0 items-center gap-2.5" aria-label="Detection-test, inicio">
-          <DetectionEmblem className="h-12 w-12 shrink-0" />
-          <span className="flex shrink-0 flex-col leading-none">
-            <span className="whitespace-nowrap font-display text-xl font-bold tracking-tight text-foreground lg:text-[1.45rem]">
+      <div className="nav-rail mx-auto flex max-w-[1440px] items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
+        {/* Marca */}
+        <a href="#inicio" className="nav-capsule nav-brand flex shrink-0 items-center gap-2.5" aria-label="Detection-test, inicio">
+          <DetectionEmblem className="nav-emblem shrink-0" />
+          <span className="nav-wordmark flex shrink-0 flex-col leading-none">
+            <span className="whitespace-nowrap font-display font-bold tracking-tight text-foreground">
               Detection-<span className="text-cyan">test</span>
             </span>
-            <span className="mt-1 whitespace-nowrap text-[8px] font-medium uppercase tracking-[0.18em] text-muted-foreground lg:text-[9px]">
+            <span className="nav-tagline mt-1 whitespace-nowrap font-medium uppercase tracking-[0.18em] text-muted-foreground">
               Evaluación · Análisis · Inclusión
             </span>
           </span>
         </a>
 
-        {/* Center nav */}
-        <nav className="hidden items-center gap-1 xl:flex" aria-label="Principal">
+        {/* Enlaces: sólo existen mientras el capítulo no ha empezado. */}
+        <nav className="nav-links hidden items-center gap-1 xl:flex" aria-label="Principal">
           {navLinks.map((link) => {
             const isActive = active === link.id
             return (
@@ -72,21 +132,38 @@ export function Navbar() {
                 )}
               >
                 {link.label}
-                {isActive && (
-                  <span className="absolute inset-x-3 -bottom-0.5 h-0.5 rounded-full bg-gradient-to-r from-blue to-cyan" />
-                )}
+                {/* Punto de energía con su traza, en vez del subrayado de tabs. */}
+                {isActive && <span className="nav-active-trace" aria-hidden="true" />}
               </a>
             )
           })}
         </nav>
 
-        {/* Right actions */}
-        <div className="flex items-center gap-2">
-          <CtaLink href="/login" variant="outline" className="hidden h-11 px-4 sm:inline-flex">
+        {/*
+          Indicador de capítulo. Sustituye al bloque lateral pesado durante el
+          interior y lleva su propio filamento de progreso, alimentado por la
+          variable que publica el hero.
+        */}
+        <div className="nav-capsule nav-chapter" aria-hidden="true">
+          <span className="nav-chapter-state nav-chapter-hero">
+            <strong>01</strong>
+            <span className="nav-chapter-full">{chapterLabel}</span>
+            <span className="nav-chapter-short">{chapterLabelShort}</span>
+          </span>
+          <span className="nav-chapter-state nav-chapter-platform">
+            <strong>02</strong>
+            <span>Plataforma</span>
+          </span>
+          <i className="nav-filament" />
+        </div>
+
+        {/* Acciones */}
+        <div className="nav-actions flex items-center gap-2">
+          <CtaLink href="/login" variant="outline" className="nav-capsule nav-account" aria-label="Iniciar sesión">
             <LogIn className="size-4" />
-            Iniciar sesión
+            <span className="nav-account-label">Iniciar sesión</span>
           </CtaLink>
-          <CtaLink href="#recursos" className="hidden h-11 px-5 md:inline-flex">
+          <CtaLink href="#recursos" className="nav-demo hidden h-11 px-5 md:inline-flex">
             Demo personalizada
             <ArrowRight className="size-4" />
           </CtaLink>
@@ -95,53 +172,40 @@ export function Navbar() {
             onClick={() => setOpen((v) => !v)}
             aria-label={open ? 'Cerrar menú' : 'Abrir menú'}
             aria-expanded={open}
-            className="inline-flex size-10 items-center justify-center rounded-md border border-border text-foreground xl:hidden"
+            className="nav-capsule nav-burger inline-flex size-10 items-center justify-center xl:hidden"
           >
             {open ? <X className="size-5" /> : <Menu className="size-5" />}
           </button>
         </div>
       </div>
 
-      {/* Mobile drawer */}
+      {/* Menú móvil: el mundo 3D sigue viéndose detrás, desenfocado. */}
       <div
         className={cn(
-          'fixed inset-0 top-20 z-40 origin-top glass-strong transition-[opacity,visibility,transform] duration-300 xl:hidden',
+          'nav-sheet fixed inset-0 z-40 origin-top transition-[opacity,visibility] duration-300 xl:hidden',
           open ? 'visible opacity-100' : 'invisible opacity-0',
         )}
       >
-        <nav className="flex flex-col gap-1 px-4 py-6" aria-label="Móvil">
+        <nav className="flex flex-col gap-1 px-6 pb-6 pt-28" aria-label="Móvil">
           {navLinks.map((link) => (
             <a
               key={link.id}
               href={`#${link.id}`}
               onClick={() => setOpen(false)}
               className={cn(
-                'rounded-lg px-4 py-3 text-lg font-medium transition-colors',
-                active === link.id
-                  ? 'bg-muted text-foreground'
-                  : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                'nav-sheet-link rounded-lg px-4 py-3 text-2xl font-medium transition-colors',
+                active === link.id ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
               )}
             >
               {link.label}
             </a>
           ))}
-          <div className="mt-4 flex flex-col gap-3">
-            <CtaLink
-              href="/login"
-              variant="outline"
-              size="lg"
-              className="w-full"
-              onClick={() => setOpen(false)}
-            >
+          <div className="mt-6 flex flex-col gap-3">
+            <CtaLink href="/login" variant="outline" size="lg" className="w-full" onClick={() => setOpen(false)}>
               <LogIn className="size-4" />
               Iniciar sesión
             </CtaLink>
-            <CtaLink
-              href="#recursos"
-              size="lg"
-              className="w-full"
-              onClick={() => setOpen(false)}
-            >
+            <CtaLink href="#recursos" size="lg" className="w-full" onClick={() => setOpen(false)}>
               Demo personalizada
               <ArrowRight className="size-4" />
             </CtaLink>

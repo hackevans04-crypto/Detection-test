@@ -13,7 +13,10 @@ import sharp from 'sharp'
  *   node scripts/contact-sheet.mjs 1920x1080 1440x900 1366x768
  */
 const SHOTS = path.join(process.cwd(), 'tmp', 'hero-shots')
-const PROGRESS = ['000', '008', '015', '022', '030', '036', '043', '048', '054', '060', '066', '072', '078', '084', '090', '095', '100']
+// Permite pedir una lista exacta de progresos desde fuera.
+const PROGRESS = process.env.HERO_SHEET_POINTS
+  ? process.env.HERO_SHEET_POINTS.split(",").map((p) => String(Math.round(Number(p) * 100)).padStart(3, "0"))
+  : ['000', '008', '016', '024', '032', '040', '047', '055', '063', '071', '079', '087', '095', '098', '100']
 const COLUMNS = 3
 const CELL_WIDTH = 640
 const GAP = 10
@@ -59,7 +62,10 @@ for (const viewport of process.argv.slice(2)) {
     })
   }
 
-  const out = path.join(SHOTS, `contact-sheet-${viewport.split('x')[0]}.png`)
+  const filename = viewport === '1920x1080'
+    ? 'immersive-brain-journey-contact.png'
+    : `contact-sheet-${viewport.split('x')[0]}.png`
+  const out = path.join(SHOTS, filename)
   await sharp({ create: { width, height, channels: 3, background: '#05101d' } })
     .composite(composite)
     .png({ compressionLevel: 9 })

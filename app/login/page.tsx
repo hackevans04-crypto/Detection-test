@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 
 export default function LoginPage() {
   return (
-    <main className="relative flex min-h-svh items-center justify-center overflow-hidden px-4 py-16">
+    <main className="login-stage relative flex min-h-svh items-center justify-center overflow-hidden px-4 py-16">
       <div className="pointer-events-none absolute inset-0 -z-10 bg-grid bg-grid-fade" />
       <div className="pointer-events-none absolute inset-0 -z-10 opacity-25">
         <div className="absolute left-1/2 top-1/2 h-[520px] w-[520px] -translate-x-1/2 -translate-y-1/2">
@@ -24,26 +24,26 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         <Link
           href="/"
-          className="mb-6 inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          className="login-enter login-back mb-6 inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="size-4" />
-          Volver al inicio
+          Volver a la experiencia
         </Link>
 
-        <div className="rounded-3xl glass-strong p-8 glow-blue">
+        <div className="login-panel rounded-3xl glass-strong p-8 glow-blue">
           <div className="flex flex-col items-center text-center">
-            <div className="flex size-14 items-center justify-center rounded-2xl glass">
+            <div className="login-enter login-mark flex size-14 items-center justify-center rounded-2xl glass">
               <DetectionEmblem className="h-9 w-9" />
             </div>
-            <h1 className="mt-5 font-display text-2xl font-bold tracking-tight text-foreground">
+            <h1 className="login-enter login-title mt-5 font-display text-2xl font-bold tracking-tight text-foreground">
               Bienvenido de nuevo
             </h1>
-            <p className="mt-2 text-sm text-muted-foreground">
+            <p className="login-enter login-title mt-2 text-sm text-muted-foreground">
               Ingresa a tu cuenta de Detection-test
             </p>
           </div>
 
-          <form className="mt-8 flex flex-col gap-4">
+          <form className="login-enter login-form mt-8 flex flex-col gap-4">
             <div className="flex flex-col gap-2">
               <label htmlFor="email" className="text-sm font-medium text-foreground">
                 Correo electrónico

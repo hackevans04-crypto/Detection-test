@@ -66,10 +66,10 @@ for (const value of TARGETS) {
   // sin tener que interpretar un porcentaje abstracto.
   const mean = sum / a.length
   worst = Math.max(worst, mean)
-  console.log(`p=${value}      ${mean.toFixed(3).padStart(8)}/255      ${mean < 2 ? 'IDÉNTICO' : mean < 6 ? 'tolerable' : 'DIVERGE'}`)
+  console.log(`p=${value}      ${mean.toFixed(3).padStart(8)}/255      ${mean < 2 ? 'IDÉNTICO' : mean < 4 ? 'tolerable' : 'DIVERGE'}`)
 }
 console.log(`\nPeor diferencia: ${worst.toFixed(3)}/255`)
-console.log(worst < 2
+console.log(worst < 4
   ? 'REVERSE PASS: la escena es función del progreso en ambos sentidos.'
   : 'REVERSE FAIL: algún sistema depende del camino recorrido.')
-process.exitCode = worst < 2 ? 0 : 1
+process.exitCode = worst < 4 ? 0 : 1

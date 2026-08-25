@@ -1,6 +1,23 @@
-import * as THREE from 'three'
-import { WORLD_Z, frameStage, STAGE_FOV } from '../lib/hero/stage.ts'
-import { createHeroDirectorFrame, createHeroRail, heroEntryTravel, resolveHeroDirector } from '../lib/hero/director.ts'
+import { existsSync } from 'node:fs'
+import { registerHooks } from 'node:module'
+import { fileURLToPath } from 'node:url'
+
+// Node puede ejecutar TypeScript sin transformarlo, pero su resolvedor ESM no
+// añade `.ts` a los imports internos que Next sí resuelve. Este hook sólo cubre
+// esos specifiers relativos y mantiene la prueba sobre el director real.
+registerHooks({
+  resolve(specifier, context, nextResolve) {
+    if (specifier.startsWith('.') && !/\.[cm]?[jt]sx?$/.test(specifier) && context.parentURL) {
+      const candidate = new URL(`${specifier}.ts`, context.parentURL)
+      if (existsSync(fileURLToPath(candidate))) return { url: candidate.href, shortCircuit: true }
+    }
+    return nextResolve(specifier, context)
+  },
+})
+
+const THREE = await import('three')
+const { WORLD_Z, frameStage, STAGE_FOV } = await import('../lib/hero/stage.ts')
+const { createHeroDirectorFrame, createHeroRail, heroEntryTravel, resolveHeroDirector } = await import('../lib/hero/director.ts')
 
 /**
  * Comprueba la ley de parallax sin renderizar nada.
@@ -111,7 +128,7 @@ if (pivot.shift > 40) diagnostics.push(`el encuadre dirigido desplaza el sujeto 
 if (spread < 4) problems.push(`recorrido cerca/lejos sólo ${spread.toFixed(1)}:1; las capas se mueven demasiado parecido`)
 
 // La prueba decisiva de la nueva película: no basta con acercar el FOV. Entre
-// ENTRY e INFORMATION la cámara debe cambiar X/Y/Z y cruzar el plano del cerebro.
+// ENTRY y ARRIVAL la cámara debe cambiar X/Y/Z y cruzar el plano del cerebro.
 const entry = heroEntryTravel(framing, radius)
 const deltaR = entry.delta.map((value) => Math.abs(value) / radius)
 if (deltaR[0] < 0.08) problems.push(`ENTRY apenas cambia X (${deltaR[0].toFixed(2)}R)`)

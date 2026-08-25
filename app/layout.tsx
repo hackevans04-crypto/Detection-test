@@ -1,4 +1,5 @@
 import { Analytics } from '@vercel/analytics/next'
+import { LoginTransition } from '@/components/landing/login-transition'
 import type { Metadata, Viewport } from 'next'
 import { Inter, Space_Grotesk } from 'next/font/google'
 import './globals.css'
@@ -45,7 +46,13 @@ export default function RootLayout({
     <html lang="es" className={`dark ${inter.variable} ${spaceGrotesk.variable}`}>
       <body className="bg-background text-foreground antialiased">
         {children}
-        {process.env.NODE_ENV === 'production' && <Analytics />}
+        {/*
+          Vive en el layout, no en las páginas: así la superficie del relevo
+          sobrevive al cambio de ruta y no hay un fotograma en blanco entre
+          soltar una página y pintar la otra.
+        */}
+        <LoginTransition />
+        {process.env.VERCEL === '1' && <Analytics />}
       </body>
     </html>
   )

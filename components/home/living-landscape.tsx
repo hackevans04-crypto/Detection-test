@@ -58,13 +58,19 @@ const fragmentShader = /* glsl */ `
   void main() {
     vec4 source = texture2D(uTexture, vUv);
     float luma = dot(source.rgb, vec3(0.2126, 0.7152, 0.0722));
-    float breathe = 0.96 + sin(uTime * 0.11 + uDepth * 3.7) * 0.035;
+    float breathe = 0.955 + sin(uTime * 0.26 + uDepth * 3.7) * 0.045;
 
-    // Una sombra de nube muy lenta y una franja de luz lunar recorren el
-    // relieve sin mover la montaña. El parallax sigue siendo geométrico.
-    float cloudShadow = noise(vec2(vUv.x * 3.1 - uTime * 0.012, vUv.y * 2.2 + uDepth));
-    float shadow = mix(0.88, 1.04, cloudShadow);
-    float ridge = pow(max(sin(vUv.x * 8.0 - uTime * 0.16 + vUv.y * 2.4 + uDepth * 4.0), 0.0), 18.0);
+    /*
+      Una sombra de nube y una franja de luz lunar recorren el relieve sin mover
+      la montaña. El parallax sigue siendo geométrico.
+
+      Los ritmos estaban un orden de magnitud por debajo de lo visible: a 0,012
+      la sombra avanzaba un 2 % de una celda de ruido en cinco segundos, así que
+      la ladera quedaba congelada. Ahora la cruza de verdad.
+    */
+    float cloudShadow = noise(vec2(vUv.x * 3.1 - uTime * 0.075, vUv.y * 2.2 + uDepth + uTime * 0.021));
+    float shadow = mix(0.83, 1.07, cloudShadow);
+    float ridge = pow(max(sin(vUv.x * 8.0 - uTime * 0.42 + vUv.y * 2.4 + uDepth * 4.0), 0.0), 12.0);
     ridge *= smoothstep(0.08, 0.7, luma) * (0.03 + uDepth * 0.08);
 
     vec3 color = source.rgb * uTint * breathe * shadow;
@@ -134,12 +140,13 @@ export function LivingLandscape({
     material.uniforms.uVisibility.value = visibility
     if (!mesh.current) return
     mesh.current.visible = visibility > 0.005
-    // El desplazamiento es menor de un píxel en reposo. El viento se lee en la
-    // luz y las nubes; la montaña conserva masa y no parece gelatina.
-    mesh.current.position.x = Math.sin(signal.time * (0.018 + depth * 0.006) + phase) * 0.022 * depth
+    // El viento se lee sobre todo en la luz y la sombra; la montaña se mueve lo
+    // justo para no parecer un recorte pegado, y nunca tanto como para parecer
+    // gelatina.
+    mesh.current.position.x = Math.sin(signal.time * (0.055 + depth * 0.012) + phase) * 0.05 * depth
       - signal.pointerX * 0.045 * depth
     mesh.current.position.y = offsetY * height
-      + Math.sin(signal.time * 0.013 + phase * 1.7) * 0.012 * depth
+      + Math.sin(signal.time * 0.037 + phase * 1.7) * 0.026 * depth
       + signal.pointerY * 0.018 * depth
   })
 
