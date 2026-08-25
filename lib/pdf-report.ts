@@ -15,7 +15,7 @@ function linesFor(evaluation: EvaluationRecord) {
     '',
     '1. DATOS INFORMATIVOS',
     `Evaluado: ${evaluation.student.fullName}`,
-    `Edad: ${evaluation.student.ageYears} anos`,
+    `Edad: ${evaluation.student.ageYears} años`,
     `Identificacion: ${evaluation.student.identification}`,
     `Institucion: ${evaluation.student.institution}`,
     `Grado/curso: ${evaluation.student.grade}`,
