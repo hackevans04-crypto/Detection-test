@@ -7,12 +7,22 @@ __v0_jsx-dev-runtime.ts
 .vercel/
 
 # Environment variables
+.env
 .env*.local
+.env.production
+.env.development
+.env.test
 
 # Common ignores
-node_modules
+node_modules/
 .next/
+out/
 .DS_Store
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.log
 
 # Generated local work and diagnostics
 .tmp-*/

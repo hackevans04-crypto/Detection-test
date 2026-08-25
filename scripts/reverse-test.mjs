@@ -18,17 +18,15 @@ import sharp from 'sharp'
  */
 const BASE = process.env.HERO_BASE ?? 'http://localhost:3000'
 const OUT = path.join(process.cwd(), 'tmp', 'reverse')
-const TARGETS = [0.22, 0.54, 0.78, 0.95]
+const TARGETS = [0.2, 0.5, 0.8]
 // Ida y vuelta: se visita todo el recorrido antes de volver a cada objetivo.
-const FORWARD = [0, ...TARGETS]
-const BACKWARD = [1, ...[...TARGETS].reverse()]
+const FORWARD = [0, 0.2, 0.5, 0.8]
+const BACKWARD = [1, 0.8, 0.5, 0.2]
 
 fs.mkdirSync(OUT, { recursive: true })
-const renderer = process.env.HERO_RENDERER ?? (process.platform === 'win32' ? 'd3d11' : 'swiftshader')
-const rendererArgs = renderer === 'swiftshader'
-  ? ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--disable-lcd-text']
-  : ['--use-gl=angle', '--use-angle=d3d11', '--enable-gpu', '--ignore-gpu-blocklist', '--disable-lcd-text']
-const browser = await chromium.launch({ args: rendererArgs })
+const browser = await chromium.launch({
+  args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'],
+})
 const page = await browser.newPage({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1 })
 page.setDefaultTimeout(240_000)
 await page.goto(`${BASE}/?heroTest=1&p=0`, { waitUntil: 'domcontentloaded' })
@@ -38,9 +36,7 @@ await page.waitForFunction('window.__heroReady === true')
 async function walk(sequence, tag) {
   for (const value of sequence) {
     await page.evaluate((v) => window.__heroSetProgress(v), value)
-    await page.evaluate(() => new Promise((resolve) => {
-      requestAnimationFrame(() => requestAnimationFrame(resolve))
-    }))
+    await page.waitForTimeout(1400)
     if (!TARGETS.includes(value)) continue
     await page.screenshot({
       path: path.join(OUT, `${tag}-${String(Math.round(value * 100)).padStart(3, '0')}.png`),

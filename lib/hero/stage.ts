@@ -6,9 +6,8 @@ import * as THREE from 'three'
  * Los originales de Hi3D rondan 65 MB, dos millones de triángulos y dos JPEG de
  * 8192×8192 —358 MB de memoria de GPU por textura—, así que la escena no carga
  * ninguno: usa las versiones derivadas por `scripts/optimize-hero-models.mjs`,
- * medidas en `tmp/model-optimization.json`. El cerebro orgánico completo y la
- * galaxia se auditaron, pero no se cargan porque duplican o contradicen el
- * ensamblaje continuo.
+ * medidas en `tmp/model-optimization.json`. Los siete juntos suman 767k
+ * triángulos y 8,9 MB.
  *
  * Ninguno trae animaciones ni piezas separadas: son mallas fusionadas con un
  * solo material. Todo lo que se mueve se construye aquí, con grupos, curvas y
@@ -16,7 +15,7 @@ import * as THREE from 'three'
  */
 const WEB = '/detection-home/hero/models/web'
 
-export type ActorKey = 'brain' | 'organic' | 'interior' | 'platform' | 'hud' | 'neural' | 'energy'
+export type ActorKey = 'brain' | 'platform' | 'hud' | 'neural' | 'energy'
 
 export type ActorSpec = {
   key: ActorKey
@@ -36,17 +35,18 @@ export type ActorSpec = {
    */
   cropInsideRadius?: number
   /** Anchura objetivo, en múltiplos del radio del cerebro. */
-  width?: number
-  /** Los estados cerebrales se normalizan por altura para ocupar el mismo volumen. */
-  fit?: 'brain-height'
+  width: number
   /** Posición, también en múltiplos del radio del cerebro. */
   position: [number, number, number]
   baseRotation: [number, number, number]
+  /**
+   * Coreografía: [entra, pleno, sigue pleno, sale]. Mantener los siete modelos
+   * visibles todo el rato sería contaminación visual; cada uno tiene su tramo.
+   */
+  window: [number, number, number, number]
   /** Giro propio sobre Y, en radianes por segundo. */
   spin: number
   emissive: string
-  /** Multiplicador cromático del mapa horneado. */
-  tint?: string
   emissiveIntensity: number
   peakOpacity: number
 }
@@ -55,10 +55,13 @@ export type ActorSpec = {
 export const BRAIN_WORLD_HEIGHT = 2.2
 
 export const BRAIN_URL = `${WEB}/brain-organic-digital.glb`
-export const BRAIN_ORGANIC_URL = `${WEB}/brain-solid.glb`
-export const BRAIN_INTERIOR_URL = `${WEB}/brain-stem.glb`
-/** Alias conservado para los consumidores antiguos. */
-export const BRAIN_LOW_URL = BRAIN_ORGANIC_URL
+
+/**
+ * Cerebro sólo orgánico. Derivado y disponible, pero **no se usa en runtime**:
+ * sustituir el cerebro por tier cambiaba la dirección artística —desaparecía el
+ * hemisferio digital— en cuanto un equipo no sostenía 42 fps.
+ */
+export const BRAIN_LOW_URL = `${WEB}/brain-solid.glb`
 
 export const ACTORS: ActorSpec[] = [
   {
@@ -68,80 +71,58 @@ export const ACTORS: ActorSpec[] = [
     width: 1.82,
     position: [0, -1.24, 0],
     baseRotation: [0, 0, 0],
+    window: [0, 0, 1, 1],
     spin: -0.045,
     emissive: '#07477f',
-    emissiveIntensity: 0.16,
-    peakOpacity: 0.92,
-  },
-  {
-    key: 'interior',
-    url: BRAIN_INTERIOR_URL,
-    width: 1.48,
-    position: [0, -0.04, -0.14],
-    baseRotation: [0, -Math.PI / 2, 0],
-    spin: 0,
-    emissive: '#2465b8',
-    emissiveIntensity: 0.22,
-    peakOpacity: 0.72,
+    emissiveIntensity: 0.34,
+    peakOpacity: 1,
   },
   {
     key: 'hud',
     url: `${WEB}/hud-orbital.glb`,
     cropInsideRadius: 0.4,
-    width: 2.72,
-    position: [0, 0.02, -0.46],
+    width: 3.05,
+    position: [0, 0.02, 0],
     baseRotation: [0.06, 0, 0],
+    // Jaula de datos: despierta con la activación, acompaña el arco de cámara y
+    // se apaga antes de la institución. El anillo limpio del fotograma cero es
+    // otro elemento, procedural, porque ningún GLB lo aporta.
+    window: [0.12, 0.26, 0.58, 0.72],
     spin: 0.075,
     emissive: '#0e6fd0',
-    emissiveIntensity: 0.46,
-    peakOpacity: 0.18,
-  },
-  {
-    key: 'neural',
-    url: `${WEB}/neural-cluster.glb`,
-    /*
-      Es una placa (0,97 × 1,00 × 0,41), no un volumen.
-
-      Fue membrana atravesable mientras la cámara entraba en el cerebro. Sin
-      viaje interior recupera el papel que su forma pide: un telón de datos
-      DETRÁS del sujeto. Ahí hace un trabajo que ninguna otra pieza hacía —dar
-      algo a lo que el cerebro pueda ocultar mientras la cámara orbita—, que es
-      la mitad de la lectura de profundidad de la fase de órbita.
-    */
-    /*
-      Lejos y muy tenue.
-
-      A 1,15 R por detrás y con opacidad 0,24 sus lóbulos se recortaban justo
-      sobre el hombro del cerebro y se leían como manchas pálidas flotando, no
-      como un fondo. A 2,4 R queda fuera del halo del sujeto y con 0,12 se
-      comporta como lo que tiene que ser: un campo de datos contra el que el
-      cerebro pueda recortarse mientras la cámara orbita.
-    */
-    width: 1.62,
-    position: [0, 0.02, -0.2],
-    baseRotation: [0, -Math.PI / 2, 0],
-    spin: -0.03,
-    emissive: '#355eea',
-    emissiveIntensity: 0.34,
-    peakOpacity: 0.34,
+    emissiveIntensity: 0.7,
+    peakOpacity: 0.42,
   },
   {
     key: 'energy',
     url: `${WEB}/energy-reactor.glb`,
-    /*
-      El núcleo de la plataforma. Casi esférico, así que se asienta bien dentro
-      del podio. Sólo existe al final: es lo que hace que la última toma sea un
-      descenso hacia algo encendido en vez de un plano vacío con el cerebro
-      desvaneciéndose.
-    */
-    width: 0.22,
-    position: [0, -0.02, -0.08],
+    width: 1.75,
+    position: [0, -1.1, -0.15],
     baseRotation: [0, 0, 0],
-    spin: 0.3,
-    emissive: '#2fd9ff',
-    tint: '#247aa6',
-    emissiveIntensity: 0.28,
-    peakOpacity: 0.58,
+    // Sólo durante la activación: entra con el escáner y se apaga cuando la
+    // cámara termina el arco.
+    window: [0.15, 0.24, 0.36, 0.46],
+    spin: 0.28,
+    emissive: '#12a8e8',
+    emissiveIntensity: 0.9,
+    peakOpacity: 0.7,
+  },
+  {
+    key: 'neural',
+    url: `${WEB}/neural-cluster.glb`,
+    // Envuelve al cerebro en vez de plantarse a su lado. Con 3,5 R y a −1,75 R
+    // se leía como una segunda estructura gigante compitiendo con el sujeto,
+    // que es justo lo que la dirección de arte rechaza.
+    width: 2.35,
+    position: [0, 0.04, -0.85],
+    baseRotation: [0, 0.35, 0],
+    // Acompaña al tramo de inteligencia: aparece cuando la cámara se estabiliza
+    // y se apaga antes de la institución.
+    window: [0.3, 0.46, 0.7, 0.76],
+    spin: -0.05,
+    emissive: '#1467c8',
+    emissiveIntensity: 0.85,
+    peakOpacity: 0.32,
   },
 ]
 
@@ -242,122 +223,54 @@ export function measureActor(scene: THREE.Object3D, crop?: { aboveY?: number; in
   }
 }
 
+/** Peso 0 → 1 de un actor en un progreso dado, según su ventana. */
+export function actorWeight([enter, full, hold, exit]: ActorSpec['window'], p: number) {
+  if (p < full) return full <= enter ? 1 : THREE.MathUtils.clamp((p - enter) / (full - enter), 0, 1)
+  if (p <= hold) return 1
+  return exit <= hold ? 1 : THREE.MathUtils.clamp(1 - (p - hold) / (exit - hold), 0, 1)
+}
+
 /* ------------------------------------------------------------------ cámara */
 
 /**
- * Distancia mínima cámara → centro del cerebro, en múltiplos del radio.
+ * La cámara orbita alrededor del cerebro en vez de recorrer posiciones
+ * absolutas. Es la diferencia entre parecer 3D y serlo: al girar el punto de
+ * vista manteniendo el encuadre, el cerebro cambia de silueta y el fondo se
+ * desplaza según su distancia, que es justo el parallax que faltaba. Moverla
+ * en línea recta hacia el modelo sólo produciría zoom.
  *
- * Es un tope duro, no una preferencia. Por debajo de 2,1 R el sujeto deja de
- * caber en el encuadre y los dos hemisferios se convierten en dos paredes: se
- * pierde la silueta y con ella la lectura de qué se está mirando. Hay una
- * aserción en desarrollo que salta si alguna curva lo viola.
- */
-export const MIN_CAMERA_DISTANCE_R = 2.1
-
-/**
- * Altura aparente máxima del cerebro, como fracción del alto del viewport.
- *
- * El encuadre bueno vive entre 0,45 y 0,60; 0,68 es el límite que no se cruza
- * ni en el punto más cercano. Con `BRAIN_WORLD_HEIGHT` y `STAGE_FOV` fijos la
- * fracción es sólo función de la distancia, así que esto se traduce en un
- * factor mínimo para `CAMERA_ORBIT` y se puede comprobar sin renderizar.
- */
-export const MAX_BRAIN_SCREEN_HEIGHT = 0.68
-
-/**
- * La cámara orbita alrededor del cerebro y **nunca entra en él**.
- *
- * Cada punto de la curva es (azimut°, elevación°, factor de distancia), y los
- * veintiún nudos están repartidos uniformemente entre p=0 y p=1 —uno cada
- * 0,05—, que es como `CatmullRomCurve3` parametriza `getPoint`.
- *
- * El factor no baja de 0,83. A distancia base el cerebro ocupa el 44 % del alto
- * del viewport, así que 0,83 lo deja en el 53 %: dentro de la banda buena y
- * lejos del 68 % que es el techo. La versión anterior bajaba a 0,12 y metía la
- * cámara entre los hemisferios; lo que se ganaba en espectáculo se perdía en
- * comprensión, porque a esa distancia el objeto ya no se reconoce.
- *
- * El volumen no lo da acercarse, lo da **el recorrido lateral**: entre p=0,30 y
- * p=0,50 el azimut cruza de −8,9° a +7,8°, que a esta distancia son ±0,8 R de
- * desplazamiento en X. El cerebro cambia de cara, la plataforma gira bajo él y
- * las nueve capas del fondo se desplazan cada una lo que le toca por su Z.
+ * Cada punto de la curva es (azimut°, elevación°, factor de distancia). Los
+ * once nudos están repartidos uniformemente entre p=0 y p=1, que es como
+ * `CatmullRomCurve3` parametriza `getPoint`.
  */
 export const CAMERA_ORBIT = new THREE.CatmullRomCurve3([
-  new THREE.Vector3(0, 0, 1), //          0.00  plano de situación
-  new THREE.Vector3(-0.4, 0.1, 0.998), // 0.05
-  new THREE.Vector3(-1, 0.3, 0.993), //   0.10  respira, nada más
-  new THREE.Vector3(-1.8, 0.6, 0.986), // 0.15
-  new THREE.Vector3(-3.4, 1.2, 0.957), // 0.20  activación: dolly corto
-  new THREE.Vector3(-5.8, 1.9, 0.907), // 0.25
-  new THREE.Vector3(-8.9, 2.6, 0.870), //0.30  arranca la órbita en −0,8 R
-  new THREE.Vector3(-6, 2.2, 0.856), //   0.35
-  new THREE.Vector3(-1, 1.5, 0.846), //   0.40  cruza el frente
-  new THREE.Vector3(4.5, 0.9, 0.838), //  0.45
-  new THREE.Vector3(7.8, 0.6, 0.834), //  0.50  fin de la órbita en +0,7 R
-  new THREE.Vector3(8.6, 0.5, 0.831), //  0.55  información: casi estable
-  new THREE.Vector3(9, 0.4, 0.830), //    0.60
-  new THREE.Vector3(8.4, 0.3, 0.833), //  0.65
-  new THREE.Vector3(6.8, 0.6, 0.862), //  0.70  síntesis: retrocede un 6 %
-  new THREE.Vector3(4.6, 1, 0.895), //    0.75
-  new THREE.Vector3(2.6, 1.2, 0.936), //  0.80  institución: cede sitio
-  new THREE.Vector3(1.4, 1, 0.962), //    0.85
-  new THREE.Vector3(0.6, -0.8, 0.966), // 0.90  empieza el descenso
-  new THREE.Vector3(0.2, -3.4, 0.986), // 0.95
-  new THREE.Vector3(0, -6.2, 1.012), //   1.00  encarando la plataforma
+  new THREE.Vector3(0, 0, 1), //           0.0  encuadre aprobado
+  new THREE.Vector3(-1.5, 0.4, 0.985), //  0.1  vive, apenas respira
+  new THREE.Vector3(-4.5, 1.2, 0.975), //  0.2  activación: dolly corto
+  new THREE.Vector3(-10.5, 3, 0.95), //    0.3  arranca el arco lateral
+  new THREE.Vector3(-18, 6.2, 0.935), //   0.4  máxima perspectiva
+  new THREE.Vector3(-14.5, 5, 0.925), //   0.5  se estabiliza cerca
+  new THREE.Vector3(-11, 3.4, 0.93), //    0.6  hotspots: manda el lookAt
+  new THREE.Vector3(-8, 2.2, 0.945), //    0.7
+  new THREE.Vector3(-3, 0.6, 0.985), //    0.8  institución: retrocede
+  new THREE.Vector3(1.5, -1.8, 1.02), //   0.9
+  new THREE.Vector3(0.5, -3.6, 0.97), //   1.0  entrega a la plataforma
 ], false, 'catmullrom', 0.5)
 
-/**
- * Desplazamiento del punto mirado, en múltiplos del radio del cerebro.
- *
- * Entre 0,46 y 0,68 es esta curva —y casi sólo ella— la que trabaja: la cámara
- * se queda quieta y lo que se mueve es la mirada, hacia cada uno de los cuatro
- * conceptos por turno. Es la diferencia entre una cámara que examina un objeto
- * y una que se pasea alrededor.
- *
- * En el último tramo baja hasta −1,30 R, que es donde está el núcleo del podio:
- * la toma final no es el cerebro desvaneciéndose, es un descenso hacia la
- * plataforma del capítulo siguiente.
- */
+/** Desplazamiento del punto mirado, en múltiplos del radio del cerebro. */
 export const CAMERA_TARGET = new THREE.CatmullRomCurve3([
-  new THREE.Vector3(0, 0.04, 0), //     0.00
-  new THREE.Vector3(0, 0.04, 0), //     0.05
-  new THREE.Vector3(0, 0.04, 0), //     0.10
-  new THREE.Vector3(0, 0.05, 0), //     0.15
-  new THREE.Vector3(0.01, 0.05, 0), //  0.20
-  new THREE.Vector3(0.02, 0.05, 0), //  0.25
-  new THREE.Vector3(0.02, 0.05, 0), //  0.30
-  new THREE.Vector3(0.01, 0.04, 0), //  0.35
-  new THREE.Vector3(0, 0.04, 0), //     0.40
-  new THREE.Vector3(-0.05, 0.07, 0), // 0.45
-  new THREE.Vector3(-0.11, 0.09, 0), // 0.50  evaluación · arriba izquierda
-  new THREE.Vector3(0.11, 0.08, 0), //  0.55  análisis · arriba derecha
-  new THREE.Vector3(-0.1, -0.09, 0), // 0.60  acompañamiento · abajo izquierda
-  new THREE.Vector3(0.1, -0.08, 0), //  0.65  inclusión · abajo derecha
-  new THREE.Vector3(0, -0.02, 0), //    0.70  síntesis: vuelve al centro
-  new THREE.Vector3(0, 0, 0), //        0.75
-  new THREE.Vector3(0, 0, 0), //        0.80  institución
-  new THREE.Vector3(0, -0.07, 0), //    0.85
-  new THREE.Vector3(0, -0.36, 0), //    0.90  la mirada empieza a bajar
-  new THREE.Vector3(0, -0.88, 0), //    0.95
-  new THREE.Vector3(0, -1.3, 0), //     1.00  núcleo de la plataforma
+  new THREE.Vector3(0, 0.04, 0),
+  new THREE.Vector3(0, 0.04, 0),
+  new THREE.Vector3(0.02, 0.05, 0),
+  new THREE.Vector3(0.04, 0.06, 0),
+  new THREE.Vector3(0.02, 0.04, 0),
+  new THREE.Vector3(-0.02, 0.02, 0),
+  new THREE.Vector3(-0.06, -0.02, 0),
+  new THREE.Vector3(-0.02, -0.06, 0),
+  new THREE.Vector3(0, -0.02, 0),
+  new THREE.Vector3(0, -0.34, 0),
+  new THREE.Vector3(0, -0.72, 0),
 ], false, 'catmullrom', 0.5)
-
-/**
- * Recorre la curva y devuelve el factor de distancia más pequeño.
- *
- * `CatmullRomCurve3` interpola con `tension`, así que puede sobrepasar por
- * debajo del nudo más bajo: comprobar sólo los nudos no basta para saber si la
- * cámara respeta el límite. Lo usa la aserción de desarrollo.
- */
-export function closestOrbitFactor(samples = 400) {
-  const point = new THREE.Vector3()
-  let closest = Infinity
-  for (let i = 0; i <= samples; i++) {
-    CAMERA_ORBIT.getPoint(i / samples, point)
-    if (point.z < closest) closest = point.z
-  }
-  return closest
-}
 
 export type Framing = {
   brainHeight: number
@@ -419,7 +332,7 @@ export function frameStage(width: number, height: number, brainHeight = BRAIN_WO
     distance,
     stageX: 0,
     stageY: 0,
-    lookAtX: narrow ? 0 : -visibleWidth * 0.15,
+    lookAtX: narrow ? 0 : -visibleWidth * 0.155,
     lookAtY: width < 640 ? visibleHeight * 0.215 : narrow ? visibleHeight * 0.15 : 0,
     fov: STAGE_FOV,
     targetHeightFraction,
