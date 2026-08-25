@@ -64,7 +64,7 @@ export function LoginTransition() {
     }
     document.documentElement.dataset.leavingToLogin = 'true'
     // La cuenta alarga su escalonado sólo cuando se llega desde la experiencia.
-    if (target === '/login') document.documentElement.dataset.loginEntry = 'hero'
+    if (target === '/login' && pathname !== '/registro') document.documentElement.dataset.loginEntry = 'hero'
     else delete document.documentElement.dataset.loginEntry
 
     /*
@@ -85,9 +85,9 @@ export function LoginTransition() {
       const link = (event.target as Element | null)?.closest?.('a[href]') as HTMLAnchorElement | null
       if (!link) return
       const href = link.getAttribute('href')
-      const toLogin = href === '/login' && pathname !== '/login'
+      const toAuth = (href === '/login' || href === '/registro') && pathname !== href
       const toHome = href === '/' && pathname === '/login'
-      if (!toLogin && !toHome) return
+      if (!toAuth && !toHome) return
       if (busy.current) { event.preventDefault(); return }
 
       /*
@@ -101,7 +101,7 @@ export function LoginTransition() {
       busy.current = true
       link.dataset.transitionSource = 'true'
       const box = link.getBoundingClientRect()
-      run({ x: box.left + box.width / 2, y: box.top + box.height / 2 }, toLogin ? '/login' : '/')
+      run({ x: box.left + box.width / 2, y: box.top + box.height / 2 }, toAuth ? href! : '/')
     }
 
     document.addEventListener('click', onClick, true)
