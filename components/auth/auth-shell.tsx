@@ -27,7 +27,7 @@ const profiles = [
   'Psicopedagogo/a',
   'Docente',
   'Orientador/a DECE',
-  'Coordinador/a academico',
+  'Coordinador/a académico',
   'Investigador/a',
 ]
 
@@ -38,7 +38,7 @@ function BrandHeader() {
         <DetectionEmblem className="h-14 w-14" />
         <span>
           <strong>Detection</strong>
-          <small>EVALUACION · ANALISIS · INCLUSION</small>
+          <small>EVALUACIÓN · ANÁLISIS · INCLUSIÓN</small>
         </span>
       </Link>
 
@@ -101,7 +101,7 @@ function PasswordInput({
       <button
         type="button"
         className="auth-field-action"
-        aria-label={visible ? 'Ocultar contrasena' : 'Mostrar contrasena'}
+        aria-label={visible ? 'Ocultar contraseña' : 'Mostrar contraseña'}
         onClick={() => setVisible((value) => !value)}
       >
         {visible ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
@@ -141,16 +141,16 @@ function LoginForm() {
     <form className="auth-form" action="/dashboard">
       <Field
         id="email"
-        label="Correo electronico"
+        label="Correo electrónico"
         type="email"
         icon={<Mail className="size-4" />}
         autoComplete="email"
-        placeholder="Ingresa tu correo electronico"
+        placeholder="Ingresa tu correo electrónico"
       />
 
       <label className="auth-field" htmlFor="password">
-        <span>Contrasena</span>
-        <PasswordInput id="password" autoComplete="current-password" placeholder="Ingresa tu contrasena" />
+        <span>Contraseña</span>
+        <PasswordInput id="password" autoComplete="current-password" placeholder="Ingresa tu contraseña" />
       </label>
 
       <div className="auth-row auth-row-between">
@@ -159,13 +159,13 @@ function LoginForm() {
           <span>Recordarme</span>
         </label>
         <Link href="/login" className="auth-link">
-          ¿Olvidaste tu contrasena?
+          ¿Olvidaste tu contraseña?
         </Link>
       </div>
 
       <button className="auth-submit" type="submit">
         <UsersRound className="size-5" />
-        Iniciar sesion
+        Iniciar sesión
         <ArrowRight className="auth-submit-arrow size-5" />
       </button>
     </form>
@@ -185,19 +185,19 @@ function RegisterForm() {
         />
         <Field
           id="register-email"
-          label="Correo electronico"
+          label="Correo electrónico"
           type="email"
           icon={<Mail className="size-4" />}
           autoComplete="email"
-          placeholder="Ingresa tu correo electronico"
+          placeholder="Ingresa tu correo electrónico"
         />
         <label className="auth-field" htmlFor="register-password">
-          <span>Contrasena</span>
-          <PasswordInput id="register-password" autoComplete="new-password" placeholder="Crea una contrasena" />
+          <span>Contraseña</span>
+          <PasswordInput id="register-password" autoComplete="new-password" placeholder="Crea una contraseña" />
         </label>
         <label className="auth-field" htmlFor="confirm-password">
-          <span>Confirmar contrasena</span>
-          <PasswordInput id="confirm-password" autoComplete="new-password" placeholder="Confirma tu contrasena" />
+          <span>Confirmar contraseña</span>
+          <PasswordInput id="confirm-password" autoComplete="new-password" placeholder="Confirma tu contraseña" />
         </label>
       </div>
 
@@ -220,25 +220,26 @@ function RegisterForm() {
       <div className="auth-form-grid">
         <Field
           id="institution"
-          label="Institucion (opcional)"
+          label="Institución (opcional)"
           icon={<Building2 className="size-4" />}
-          placeholder="Nombre de la institucion"
+          autoComplete="organization"
+          placeholder="Nombre de la institución"
         />
         <Field
           id="phone"
-          label="Telefono (opcional)"
+          label="Teléfono (opcional)"
           type="tel"
           icon={<Phone className="size-4" />}
           autoComplete="tel"
-          placeholder="Ingresa tu numero de telefono"
+          placeholder="Ingresa tu número de teléfono"
         />
       </div>
 
       <label className="auth-check auth-terms">
         <input type="checkbox" />
         <span>
-          Acepto los <Link href="/registro">Terminos de servicio</Link> y la{' '}
-          <Link href="/registro">Politica de privacidad</Link>
+          Acepto los <Link href="/registro">Términos de servicio</Link> y la{' '}
+          <Link href="/registro">Política de privacidad</Link>
         </span>
       </label>
 
@@ -255,21 +256,21 @@ const loginFeatures = [
   {
     icon: <ShieldCheck className="size-7" />,
     title: 'Seguridad de datos',
-    text: 'Protegemos tu informacion con altos estandares',
+    text: 'Protegemos tu información con altos estándares',
   },
   {
     icon: <Lock className="size-7" />,
-    title: 'Evaluacion integral',
-    text: 'Procesos psicopedagogicos con tecnologia avanzada',
+    title: 'Evaluación integral',
+    text: 'Procesos psicopedagógicos con tecnología avanzada',
   },
   {
     icon: <BarChart3 className="size-7" />,
-    title: 'Analisis inteligente',
+    title: 'Análisis inteligente',
     text: 'Resultados precisos para mejores decisiones',
   },
   {
     icon: <UsersRound className="size-7" />,
-    title: 'Inclusion educativa',
+    title: 'Inclusión educativa',
     text: 'Comprometidos con la igualdad de oportunidades',
   },
 ]
@@ -303,13 +304,13 @@ export function AuthShell({ mode }: { mode: AuthMode }) {
           {isRegister ? (
             <>
               <div className="auth-copy">
-                <p>Unete a Detection-test</p>
+                <p>Únete a Detection-test</p>
                 <h1>
                   Crea tu cuenta <br />y <span>comienza</span>
                 </h1>
                 <small>
-                  Forma parte de una plataforma inteligente disenada para profesionales que evaluan, analizan y acompanan
-                  procesos psicopedagogicos.
+                  Forma parte de una plataforma inteligente diseñada para profesionales que evalúan, analizan y acompañan
+                  procesos psicopedagógicos.
                 </small>
               </div>
               <Hologram mode={mode} />
@@ -324,7 +325,7 @@ export function AuthShell({ mode }: { mode: AuthMode }) {
             <div className="auth-card-heading">
               <p>Bienvenido de nuevo</p>
               <h1>
-                Inicia sesion en <br />tu <span>cuenta</span>
+                Inicia sesión en <br />tu <span>cuenta</span>
               </h1>
             </div>
           )}
@@ -333,7 +334,7 @@ export function AuthShell({ mode }: { mode: AuthMode }) {
 
           <div className="auth-divider">
             <span />
-            <p>o continua con</p>
+            <p>o continúa con</p>
             <span />
           </div>
 
@@ -351,7 +352,7 @@ export function AuthShell({ mode }: { mode: AuthMode }) {
           <p className="auth-switch">
             {isRegister ? '¿Ya tienes una cuenta?' : '¿No tienes una cuenta?'}{' '}
             <Link href={isRegister ? '/login' : '/registro'}>
-              {isRegister ? 'Inicia sesion aqui' : 'Registrate aqui'}
+              {isRegister ? 'Inicia sesión aquí' : 'Regístrate aquí'}
             </Link>
           </p>
         </section>
