@@ -4,7 +4,7 @@ import { DetectionEmblem } from '@/components/landing/visuals/detection-emblem'
 import { sidebarGroups } from '@/data/platform-dashboard'
 import { currentSession } from '@/lib/auth/session'
 import { can, type PermissionCode } from '@/lib/domain/authorization'
-import { ChevronDown, Home } from 'lucide-react'
+import { ChevronDown } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
@@ -30,16 +30,6 @@ export function AppSidebar({ active }: { active?: string }) {
       </div>
 
       <nav className="flex-1 space-y-4 overflow-y-auto px-4 pb-5">
-        <Link
-          href="/dashboard"
-          className={`flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-semibold ${
-            currentActive === 'Inicio' ? 'bg-blue-600 shadow-[0_12px_30px_rgba(37,99,235,.45)]' : 'text-blue-50/90 hover:bg-white/8'
-          }`}
-        >
-          <Home className="size-5" />
-          Inicio
-        </Link>
-
         {visibleSidebarGroups.map((group) => (
           <section key={group.title} className="space-y-1">
             <p className="mb-2 px-2 text-[11px] font-semibold uppercase tracking-wide text-blue-200/70">{group.title}</p>
