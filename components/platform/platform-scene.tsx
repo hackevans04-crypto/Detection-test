@@ -6,6 +6,7 @@ import { useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { smoothstep } from '@/lib/platform/timeline'
 import { PlatformCast } from './platform-cast'
+import { PlatformGlyphs } from './platform-glyphs'
 import { PlatformParticles } from './platform-particles'
 import type { PlatformStateRef } from './platform-state'
 
@@ -115,6 +116,7 @@ function PlatformLayer({ sceneState }: { sceneState: PlatformStateRef }) {
       <HandoffSignal sceneState={sceneState} />
       <PlatformParticles sceneState={sceneState} />
       <PlatformCast sceneState={sceneState} />
+      <PlatformGlyphs sceneState={sceneState} />
     </group>
   )
 }
