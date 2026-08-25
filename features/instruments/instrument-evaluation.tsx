@@ -212,7 +212,7 @@ export function InstrumentEvaluationClient({ instrumentId }: { instrumentId: str
               ))}
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
                 <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Edad calculada</p>
-                <p className="mt-2 text-2xl font-bold">{student.ageYears || 0} anos</p>
+                <p className="mt-2 text-2xl font-bold">{student.ageYears || 0} años</p>
               </div>
             </div>
             <label className="mt-4 grid gap-2 text-sm font-semibold text-slate-700">
@@ -328,7 +328,7 @@ export function InstrumentEvaluationClient({ instrumentId }: { instrumentId: str
         {step === 'result' && evaluation && result && (
           <section className="mt-5 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="text-3xl font-black">RESULTADO DE EVALUACION</h2>
-            <p className="mt-2 text-slate-600">{evaluation.student.fullName || 'Evaluado'} · {evaluation.student.evaluationDate} · {evaluation.student.ageYears} anos · {instrument.nombre}</p>
+            <p className="mt-2 text-slate-600">{evaluation.student.fullName || 'Evaluado'} · {evaluation.student.evaluationDate} · {evaluation.student.ageYears} años · {instrument.nombre}</p>
             <div className="mt-5 grid gap-4 md:grid-cols-4">
               <div className="rounded-xl bg-blue-50 p-4"><p className="text-xs font-bold uppercase text-blue-700">Puntuacion global</p><p className="mt-2 text-2xl font-black">{result.kind === 'abc' ? result.total : result.pdTotal}</p></div>
               <div className="rounded-xl bg-emerald-50 p-4"><p className="text-xs font-bold uppercase text-emerald-700">Nivel / clasificacion</p><p className="mt-2 text-lg font-black">{result.kind === 'abc' ? result.level : 'Ver tabla PT'}</p></div>

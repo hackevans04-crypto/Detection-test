@@ -238,7 +238,7 @@ export function StudentsModule() {
                       <div>
                         <h1 className="font-display text-2xl font-bold">{fullName(selectedStudent)}</h1>
                         <p className="mt-1 text-sm text-slate-600">
-                          {selectedStudent.grade} {selectedStudent.parallel} · {calculateAge(selectedStudent.birthDate)} anos · Tutor: {selectedStudent.tutorName}
+                          {selectedStudent.grade} {selectedStudent.parallel} · {calculateAge(selectedStudent.birthDate)} años · Tutor: {selectedStudent.tutorName}
                         </p>
                         <div className="mt-3 flex flex-wrap gap-2">
                           <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">{selectedStudent.status}</span>
