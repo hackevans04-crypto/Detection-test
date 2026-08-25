@@ -262,8 +262,6 @@ export function PlatformCast({ sceneState }: { sceneState: PlatformStateRef }) {
     for (let index = 0; index < CORRIDOR_SEGMENTS; index += 1) {
       const segment = dressedModel(tunnelGltf.scene, CORRIDOR_SEGMENT, { glow: 0.1, env: 0.32, metalness: 0.5, roughness: 0.72 })
       segment.position.z = -index * CORRIDOR_SEGMENT
-      // Media vuelta alterna: la costura entre tramos deja de leerse como un aro.
-      segment.rotation.z = index * Math.PI * 0.5
       group.add(segment)
     }
     return group

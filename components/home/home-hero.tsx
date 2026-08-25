@@ -346,42 +346,36 @@ export function HomeHero() {
           document.documentElement.style.setProperty('--hero-progress', progress.toFixed(4))
           document.documentElement.style.setProperty('--platform-progress', platformProgress.toFixed(4))
           document.documentElement.dataset.platformActive = platformProgress > 0.01 && platformProgress < 0.995 ? 'true' : 'false'
-          // El capítulo 02 se anuncia cuando ya nacieron anillo y base; durante
-          // logos y señal seguimos narrativamente en Inicio.
-          /*
-            El capítulo termina y la barra vuelve entera.
-
-            `navPlatform` se quedaba en 1 para siempre en cuanto Plataforma
-            pasaba del 20 %, y ese peso alimenta tanto el morph como el estado.
-            Resultado: los cuatro módulos siguientes se recorrían con la barra en
-            compacto, sin enlaces y con «02 · Plataforma» en el centro mientras
-            el raíl de módulos ya decía 05. Se deshace durante el relevo hacia
-            Proceso, que es cuando el usuario está saliendo de la experiencia.
-          */
-          const chapterOver = smootherstep(0.9, 0.995, platformProgress)
-          const navPlatform = smootherstep(0.1, 0.2, platformProgress) * (1 - chapterOver)
-          document.documentElement.style.setProperty('--nav-platform', navPlatform.toFixed(4))
-          document.documentElement.style.setProperty('--nav-chapter-progress', gsap.utils.interpolate(progress, platformProgress, navPlatform).toFixed(4))
           /*
             Pesos continuos para el morph de la navegación.
 
-            El atributo de estado se conserva sólo para elegir la etiqueta
-            narrativa del centro, que es texto y no puede interpolarse. Todo
+            El atributo de estado se conserva sólo para soltar del puntero los
+            enlaces cuando ya son invisibles del todo. Todo
             lo visual —altura, velo, desenfoque, escala del logo, opacidad de
             los enlaces, ancho de la cuenta— se interpola desde estos dos
             números, así que la barra deja de cambiar por interruptor.
           */
-          const compactHero = smootherstep(PHASE.AWAKENING - 0.02, PHASE.UNLOCK, progress)
+          /*
+            Plataforma ya no encoge la barra.
+
+            El capítulo 02 la dejaba en compacto —sin enlaces, sin descriptor y
+            con su propia cápsula de capítulo en el centro—, así que al pasar de
+            Inicio a Plataforma la navegación cambiaba de forma y la página se
+            sentía como dos sitios distintos. Es el mismo argumento por el que
+            hay un solo raíl de módulos: quien dice dónde estás es el raíl, y la
+            barra sólo navega.
+
+            El único tramo que sigue encogiéndola es el interior del cerebro,
+            donde el mundo ocupa la pantalla a propósito.
+          */
+          const compact = smootherstep(PHASE.AWAKENING - 0.02, PHASE.UNLOCK, progress)
             * (1 - smootherstep(PHASE.PLATFORM_EXIT, 1, progress))
-          const compact = Math.max(compactHero, navPlatform)
           const immersive = smootherstep(PHASE.ENTRY - 0.04, PHASE.ENTRY + 0.05, progress)
             * (1 - smootherstep(PHASE.REASSEMBLY, PHASE.INSTITUTION, progress))
           document.documentElement.style.setProperty('--nav-compact', compact.toFixed(4))
           document.documentElement.style.setProperty('--nav-immersive', immersive.toFixed(4))
           document.documentElement.dataset.heroNav =
-            chapterOver > 0.5 ? 'full'
-            : platformProgress > 0.1 ? 'compact'
-            : progress < PHASE.AWAKENING ? 'full'
+            progress < PHASE.AWAKENING ? 'full'
             : progress < PHASE.ENTRY ? 'compact'
             : progress < PHASE.REASSEMBLY ? 'immersive'
             : progress < PHASE.PLATFORM_EXIT ? 'compact'
@@ -632,8 +626,6 @@ export function HomeHero() {
           root.style.removeProperty('--platform-progress')
           document.documentElement.style.removeProperty('--hero-progress')
           document.documentElement.style.removeProperty('--platform-progress')
-          document.documentElement.style.removeProperty('--nav-platform')
-          document.documentElement.style.removeProperty('--nav-chapter-progress')
           document.documentElement.style.removeProperty('--nav-compact')
           document.documentElement.style.removeProperty('--nav-immersive')
           delete document.documentElement.dataset.heroNav

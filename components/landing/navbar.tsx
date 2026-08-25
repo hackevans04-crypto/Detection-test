@@ -88,15 +88,6 @@ export function Navbar() {
     }
   }, [open])
 
-  const chapterLabel = state === 'full' ? 'Inicio' : 'Exploración neural'
-  /*
-    Versión corta para pantallas estrechas. En 390 px el rótulo completo se
-    partía en dos líneas y rozaba el wordmark. Se renderizan las dos y elige el
-    CSS, de modo que no hace falta un estado nuevo ni medir el viewport aquí:
-    el sistema de morph del nav queda intacto.
-  */
-  const chapterLabelShort = state === 'full' ? 'Inicio' : 'Exploración'
-
   return (
     <header
       // z-100: la navegación queda por encima del mundo 3D, pero en compacto e
@@ -138,24 +129,6 @@ export function Navbar() {
             )
           })}
         </nav>
-
-        {/*
-          Indicador de capítulo. Sustituye al bloque lateral pesado durante el
-          interior y lleva su propio filamento de progreso, alimentado por la
-          variable que publica el hero.
-        */}
-        <div className="nav-capsule nav-chapter" aria-hidden="true">
-          <span className="nav-chapter-state nav-chapter-hero">
-            <strong>01</strong>
-            <span className="nav-chapter-full">{chapterLabel}</span>
-            <span className="nav-chapter-short">{chapterLabelShort}</span>
-          </span>
-          <span className="nav-chapter-state nav-chapter-platform">
-            <strong>02</strong>
-            <span>Plataforma</span>
-          </span>
-          <i className="nav-filament" />
-        </div>
 
         {/* Acciones */}
         <div className="nav-actions flex items-center gap-2">

@@ -1558,54 +1558,6 @@
 }
 /* Centrada de verdad: con los enlaces retraídos, el flex la arrastraba junto
    a las acciones y quedaban dos cápsulas pegadas a la derecha. */
-.nav-chapter {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  display: none;
-  align-items: baseline;
-  gap: 8px;
-  padding: 7px 18px;
-  color: #cfeaff;
-  font-size: 11px;
-  letter-spacing: .16em;
-  text-transform: uppercase;
-}
-.nav-chapter-short { display: none; }
-.nav-chapter strong {
-  color: #8df0ff;
-  font-family: var(--font-display);
-  font-size: 15px;
-  letter-spacing: .04em;
-}
-.nav-chapter-state { display: flex; align-items: baseline; gap: 8px; white-space: nowrap; }
-.nav-chapter-hero {
-  opacity: calc(1 - var(--nav-platform, 0));
-  transform: translateY(calc(var(--nav-platform, 0) * -7px));
-}
-.nav-chapter-platform {
-  position: absolute;
-  left: 18px;
-  opacity: var(--nav-platform, 0);
-  transform: translateY(calc((1 - var(--nav-platform, 0)) * 7px));
-}
-/* Filamento de progreso: se llena con el mismo valor que mueve la escena. */
-.nav-filament {
-  position: absolute;
-  inset-inline: 18px;
-  bottom: 3px;
-  height: 1px;
-  background: rgba(120, 200, 255, .16);
-}
-.nav-filament::after {
-  content: "";
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: calc(var(--nav-chapter-progress, var(--hero-progress, 0)) * 100%);
-  background: linear-gradient(90deg, rgba(70, 190, 255, .5), #8df0ff);
-  box-shadow: 0 0 8px rgba(96, 226, 255, .7);
-}
-
 /* Cuenta: cápsula, no botón de panel de control. */
 .nav-account {
   display: inline-flex;
@@ -1765,19 +1717,6 @@
 }
 
 /*
-  El indicador entra DESPUÉS de que los enlaces se hayan ido.
-
-  Con `opacity: var(--c)` los dos ocupaban el centro a la vez a mitad de
-  transición y el número se leía encima de «Tecnología». Arrancando en 0,55
-  el relevo es limpio sin dejar hueco.
-*/
-.nav-chapter {
-  display: flex;
-  opacity: clamp(0, calc((var(--c) - .55) / .45), 1);
-  pointer-events: none;
-}
-
-/*
   La cuenta se contrae progresivamente: el texto pierde ancho y opacidad hasta
   quedar sólo el icono. Nunca desaparece de un fotograma al siguiente, y nunca
   desaparece del todo: es la salida del usuario.
@@ -1805,18 +1744,6 @@
   sigue completa. No se toca el morph ni se añade ningún estado.
 */
 @media (max-width: 767px) {
-  .nav-chapter {
-    max-width: min(54vw, 208px);
-    gap: 6px;
-    padding: 6px 12px;
-    font-size: 9.5px;
-    letter-spacing: .1em;
-    white-space: nowrap;
-  }
-  .nav-chapter strong { font-size: 13px; }
-  .nav-chapter-full { display: none; }
-  .nav-chapter-short { display: inline; }
-
   .nav-shell[data-state="compact"] .nav-wordmark > span:first-child,
   .nav-shell[data-state="immersive"] .nav-wordmark > span:first-child { display: none; }
 }
