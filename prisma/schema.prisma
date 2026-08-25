@@ -1,0 +1,563 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserStatus {
+  ACTIVE
+  INVITED
+  SUSPENDED
+  DISABLED
+}
+
+enum AuditAction {
+  USER_CREATED
+  USER_UPDATED
+  ROLE_ASSIGNED
+  ROLE_REVOKED
+  LOGIN_SUCCEEDED
+  LOGIN_FAILED
+  STUDENT_CREATED
+  STUDENT_UPDATED
+  EVALUATION_STARTED
+  EVALUATION_PAUSED
+  EVALUATION_COMPLETED
+  SCORE_CHANGED
+  AI_ANALYSIS_GENERATED
+  AI_ANALYSIS_APPROVED
+  REPORT_GENERATED
+  REPORT_EDITED
+  REPORT_FINALIZED
+  REPORT_DOWNLOADED
+  RECORD_CREATED
+  RECORD_UPDATED
+  CONSENT_SIGNED
+  DOCUMENT_UPLOADED
+}
+
+enum StudentStatus {
+  ACTIVE_RECORD
+  EVALUATION_IN_PROGRESS
+  REPORT_PENDING
+  FOLLOWUP
+  ARCHIVED
+}
+
+enum ConsentStatus {
+  PENDING
+  SIGNED
+  REVOKED
+}
+
+enum EvaluationStatus {
+  DRAFT
+  IN_PROGRESS
+  COMPLETED
+  REVIEWED
+  REPORT_GENERATED
+  CANCELLED
+}
+
+enum EvaluationMode {
+  PRACTICE
+  EVALUATION
+}
+
+enum DocumentType {
+  CONSENT
+  REFERRAL
+  SCHOOL_RECORD
+  MEDICAL
+  REPORT
+  OTHER
+}
+
+model Institution {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  code      String?  @unique
+  district  String?
+  address   String?
+  phone     String?
+  email     String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users     User[]
+  students  Student[]
+  auditLogs AuditLog[]
+
+  @@index([name])
+  @@map("institutions")
+}
+
+model User {
+  id            String     @id @default(uuid()) @db.Uuid
+  institutionId String?    @db.Uuid
+  name          String
+  email         String     @unique
+  passwordHash  String
+  title         String?
+  status        UserStatus @default(INVITED)
+  lastLoginAt   DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  deletedAt     DateTime?
+
+  institution Institution? @relation(fields: [institutionId], references: [id])
+  roles       UserRole[]
+  auditLogs   AuditLog[]   @relation("AuditActor")
+
+  @@index([institutionId])
+  @@index([status])
+  @@map("users")
+}
+
+model Role {
+  id          String   @id @default(uuid()) @db.Uuid
+  code        String   @unique
+  name        String
+  description String?
+  systemRole  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users       UserRole[]
+  permissions RolePermission[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id          String   @id @default(uuid()) @db.Uuid
+  code        String   @unique
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+
+  roles RolePermission[]
+
+  @@map("permissions")
+}
+
+model UserRole {
+  userId String @db.Uuid
+  roleId String @db.Uuid
+
+  assignedAt DateTime @default(now())
+  assignedBy String?  @db.Uuid
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+model RolePermission {
+  roleId       String @db.Uuid
+  permissionId String @db.Uuid
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model Student {
+  id            String    @id @default(uuid()) @db.Uuid
+  institutionId String    @db.Uuid
+  firstName     String
+  lastName      String
+  identification String?
+  birthDate     DateTime?
+  grade         String?
+  parallel      String?
+  tutorName     String?
+  photoUrl      String?
+  status        StudentStatus @default(ACTIVE_RECORD)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+
+  institution Institution @relation(fields: [institutionId], references: [id])
+  guardians    StudentGuardian[]
+  record       StudentPsychoPedagogicalRecord?
+  consents     Consent[]
+  evaluations  Evaluation[]
+  documents    StudentDocument[]
+
+  @@index([institutionId])
+  @@index([lastName, firstName])
+  @@index([status])
+  @@map("students")
+}
+
+model StudentGuardian {
+  id          String   @id @default(uuid()) @db.Uuid
+  studentId   String   @db.Uuid
+  fullName    String
+  relationship String?
+  phone       String?
+  email       String?
+  address     String?
+  isPrimary   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([studentId])
+  @@map("student_guardians")
+}
+
+model StudentPsychoPedagogicalRecord {
+  id                     String   @id @default(uuid()) @db.Uuid
+  studentId              String   @unique @db.Uuid
+  referralSource         String?
+  evaluationReason       String
+  familyBackground       String?
+  healthDevelopment      String?
+  autonomy               String?
+  schoolHistory          String?
+  previousInterventions  String?
+  legalFramework         String?
+  observations           String?
+  createdByUserId        String?  @db.Uuid
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@map("student_psychopedagogical_records")
+}
+
+model Consent {
+  id          String        @id @default(uuid()) @db.Uuid
+  studentId   String        @db.Uuid
+  status      ConsentStatus @default(PENDING)
+  signedBy    String?
+  signedAt    DateTime?
+  documentUrl String?
+  notes       String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([studentId])
+  @@index([status])
+  @@map("consents")
+}
+
+model Evaluation {
+  id              String           @id @default(uuid()) @db.Uuid
+  studentId       String           @db.Uuid
+  professionalId  String?          @db.Uuid
+  instrumentId    String?          @db.Uuid
+  instrumentVersionId String?      @db.Uuid
+  instrumentCode  String
+  instrumentName  String
+  mode            EvaluationMode   @default(EVALUATION)
+  status          EvaluationStatus @default(DRAFT)
+  startedAt       DateTime?
+  completedAt     DateTime?
+  totalScore      Float?
+  range           String?
+  level           String?
+  interpretation  String?
+  ageWarning      Boolean          @default(false)
+  rawScores       Json?
+  interpretedData Json?
+  professionalNotes String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  instrument Instrument? @relation(fields: [instrumentId], references: [id])
+  instrumentVersion InstrumentVersion? @relation(fields: [instrumentVersionId], references: [id])
+  responses EvaluationResponse[]
+  scores EvaluationScore[]
+  observations Observation[]
+  recommendations Recommendation[]
+  reports Report[]
+
+  @@index([studentId])
+  @@index([instrumentCode])
+  @@index([instrumentId])
+  @@index([instrumentVersionId])
+  @@index([status])
+  @@map("evaluations")
+}
+
+model Instrument {
+  id          String   @id @default(uuid()) @db.Uuid
+  code        String   @unique
+  name        String
+  author      String
+  objective   String?
+  area        String?
+  ageMin      Float?
+  ageMax      Float?
+  application String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  versions InstrumentVersion[]
+  areas InstrumentArea[]
+  evaluations Evaluation[]
+
+  @@map("instruments")
+}
+
+model InstrumentVersion {
+  id           String   @id @default(uuid()) @db.Uuid
+  instrumentId String   @db.Uuid
+  version      String
+  instructions String?
+  status       String   @default("DRAFT")
+  publishedAt  DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  instrument Instrument @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
+  subtests Subtest[]
+  activities Activity[]
+  norms Norm[]
+  interpretationRules InterpretationRule[]
+  evaluations Evaluation[]
+
+  @@unique([instrumentId, version])
+  @@map("instrument_versions")
+}
+
+model InstrumentArea {
+  id           String @id @default(uuid()) @db.Uuid
+  instrumentId String @db.Uuid
+  name         String
+  description  String?
+
+  instrument Instrument @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
+  subtests Subtest[]
+
+  @@map("areas")
+}
+
+model Subtest {
+  id                  String @id @default(uuid()) @db.Uuid
+  instrumentVersionId String @db.Uuid
+  areaId              String? @db.Uuid
+  code                String
+  number              Int
+  name                String
+  instructions        String?
+  maxScore            Float?
+  scoringCriteria     String?
+  isActive            Boolean @default(true)
+  sortOrder           Int
+
+  instrumentVersion InstrumentVersion @relation(fields: [instrumentVersionId], references: [id], onDelete: Cascade)
+  area InstrumentArea? @relation(fields: [areaId], references: [id])
+  activities Activity[]
+  scores EvaluationScore[]
+
+  @@index([instrumentVersionId])
+  @@map("subtests")
+}
+
+model Activity {
+  id                  String @id @default(uuid()) @db.Uuid
+  instrumentVersionId String @db.Uuid
+  subtestId           String @db.Uuid
+  code                String
+  prompt              String
+  instructions        String?
+  responseType        String
+  resourceUrl         String?
+  maxScore            Float?
+  criteria            String?
+  isRequired          Boolean @default(true)
+  isActive            Boolean @default(true)
+  sortOrder           Int
+
+  instrumentVersion InstrumentVersion @relation(fields: [instrumentVersionId], references: [id], onDelete: Cascade)
+  subtest Subtest @relation(fields: [subtestId], references: [id], onDelete: Cascade)
+  options ActivityOption[]
+  responses EvaluationResponse[]
+
+  @@index([instrumentVersionId])
+  @@index([subtestId])
+  @@map("activities")
+}
+
+model ActivityOption {
+  id         String @id @default(uuid()) @db.Uuid
+  activityId String @db.Uuid
+  label      String
+  value      String
+  sortOrder  Int
+
+  activity Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  @@map("activity_options")
+}
+
+model EvaluationResponse {
+  id                   String   @id @default(uuid()) @db.Uuid
+  evaluationId          String   @db.Uuid
+  activityId            String   @db.Uuid
+  responseValue         Json?
+  score                 Float?
+  evaluatorScore        Float?
+  evaluatorObservation  String?
+  answeredAt            DateTime @default(now())
+
+  evaluation Evaluation @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+  activity Activity @relation(fields: [activityId], references: [id])
+
+  @@unique([evaluationId, activityId])
+  @@map("responses")
+}
+
+model EvaluationScore {
+  id             String @id @default(uuid()) @db.Uuid
+  evaluationId   String @db.Uuid
+  subtestId      String? @db.Uuid
+  pd             Float?
+  pt             Float?
+  classification String?
+  manualPt       Boolean @default(false)
+  observations   String?
+
+  evaluation Evaluation @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+  subtest Subtest? @relation(fields: [subtestId], references: [id])
+
+  @@map("scores")
+}
+
+model Norm {
+  id                  String @id @default(uuid()) @db.Uuid
+  instrumentVersionId String @db.Uuid
+  label               String
+  minValue            Float?
+  maxValue            Float?
+  range               String?
+  level               String?
+  source              String?
+
+  instrumentVersion InstrumentVersion @relation(fields: [instrumentVersionId], references: [id], onDelete: Cascade)
+
+  @@map("norms")
+}
+
+model InterpretationRule {
+  id                  String @id @default(uuid()) @db.Uuid
+  instrumentVersionId String @db.Uuid
+  name                String
+  condition           Json
+  interpretation      String
+  recommendations     Json?
+
+  instrumentVersion InstrumentVersion @relation(fields: [instrumentVersionId], references: [id], onDelete: Cascade)
+
+  @@map("interpretation_rules")
+}
+
+model Observation {
+  id           String @id @default(uuid()) @db.Uuid
+  evaluationId String @db.Uuid
+  area         String
+  value        String?
+  notes        String?
+  createdAt    DateTime @default(now())
+
+  evaluation Evaluation @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+
+  @@map("observations")
+}
+
+model Recommendation {
+  id             String @id @default(uuid()) @db.Uuid
+  evaluationId   String @db.Uuid
+  targetRole     String
+  content        String
+  isAutoSuggested Boolean @default(true)
+  isApproved     Boolean @default(false)
+
+  evaluation Evaluation @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+
+  @@map("recommendations")
+}
+
+model Report {
+  id           String @id @default(uuid()) @db.Uuid
+  evaluationId String @db.Uuid
+  fileName     String
+  fileUrl      String?
+  generatedAt  DateTime @default(now())
+  generatedBy  String? @db.Uuid
+
+  evaluation Evaluation @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+
+  @@map("reports")
+}
+
+model Attachment {
+  id          String @id @default(uuid()) @db.Uuid
+  entityType  String
+  entityId    String
+  fileName    String
+  fileUrl     String
+  contentType String?
+  createdAt   DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@map("attachments")
+}
+
+model StudentDocument {
+  id          String       @id @default(uuid()) @db.Uuid
+  studentId   String       @db.Uuid
+  type        DocumentType @default(OTHER)
+  title       String
+  fileUrl     String
+  uploadedBy  String?      @db.Uuid
+  createdAt   DateTime     @default(now())
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([studentId])
+  @@index([type])
+  @@map("student_documents")
+}
+
+model AuditLog {
+  id            String      @id @default(uuid()) @db.Uuid
+  institutionId String?     @db.Uuid
+  actorUserId   String?     @db.Uuid
+  action        AuditAction
+  entityType    String
+  entityId      String?
+  before        Json?
+  after         Json?
+  ipAddress     String?
+  userAgent     String?
+  createdAt     DateTime    @default(now())
+
+  institution Institution? @relation(fields: [institutionId], references: [id])
+  actor      User?         @relation("AuditActor", fields: [actorUserId], references: [id])
+
+  @@index([institutionId])
+  @@index([actorUserId])
+  @@index([action])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}

@@ -1,11 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Permite compilar QA en paralelo al servidor local, que mantiene el lock de
-  // `.next`. En producción, sin la variable, conserva el directorio estándar.
+  // `.next`. En produccion, sin la variable, conserva el directorio estandar.
   distDir: process.env.NEXT_DIST_DIR || '.next',
-  typescript: {
-    ignoreBuildErrors: true,
-  },
   images: {
     unoptimized: true,
   },

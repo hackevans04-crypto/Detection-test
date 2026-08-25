@@ -68,9 +68,16 @@ if (!Number.isInteger(port) || port < 1 || port > 65535) {
 const existing = findWindowsProjectServer()
 
 if (existing && await portIsOpen(Number(existing.port))) {
-  console.log(`✓ Detection-test ya está activo en http://localhost:${existing.port} (PID ${existing.pid})`)
-  console.log('  Se reutiliza esa instancia; no se iniciará un segundo proceso.')
-  process.exit(0)
+  console.warn(`⚠️ Se detectó una instancia previa de Detection-test en http://localhost:${existing.port} (PID ${existing.pid}).`)
+  console.warn('  Se reinicia la instancia para evitar rutas obsoletas como /login en 404.')
+
+  try {
+    process.kill(existing.pid)
+  } catch {
+    // Si el proceso ya terminó, continuamos con el arranque limpio.
+  }
+
+  await new Promise((resolve) => setTimeout(resolve, 500))
 }
 
 if (await portIsOpen(port)) {
