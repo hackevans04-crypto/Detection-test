@@ -2,7 +2,7 @@ import { AuthShell } from '@/components/auth/auth-shell'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Iniciar sesion | Detection-test',
+  title: 'Iniciar sesión | Detection-test',
   description: 'Accede a la plataforma Detection-test.',
 }
 
