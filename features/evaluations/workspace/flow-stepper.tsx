@@ -52,7 +52,7 @@ export function FlowStepper({ steps, ariaLabel = 'Etapas de la evaluación' }: {
         const label = `${index + 1}. ${step.label}${step.status === 'COMPLETED' ? ' (completada)' : ''}`
 
         return (
-          <li key={step.key} style={{ display: 'flex', flex: '1 1 0', minWidth: 0 }}>
+          <li key={step.key} style={{ display: 'flex', flex: '1 0 44px', minWidth: 0 }}>
             {step.href ? (
               <Link
                 href={step.href}

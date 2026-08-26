@@ -456,6 +456,36 @@ que
   gap: 10px;
 }
 
+@media (max-width: 520px) {
+  .dt-topbar {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    padding: 12px 14px;
+  }
+
+  .dt-topbar-titles {
+    flex: 1 1 calc(100% - 52px);
+    order: 1;
+  }
+
+  .dt-topbar h1 {
+    overflow-wrap: anywhere;
+    font-size: 1.25rem;
+  }
+
+  .dt-topbar p {
+    overflow-wrap: anywhere;
+    font-size: 0.8125rem;
+    line-height: 1.45;
+  }
+
+  .dt-topbar-actions {
+    order: 2;
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+
 .dt-topbar-divider {
   width: 1px;
   height: 30px;
@@ -602,6 +632,12 @@ que
   padding: 22px 20px 40px;
 }
 
+@media (max-width: 520px) {
+  .dt-page {
+    padding: 14px 10px 28px;
+  }
+}
+
 @media (min-width: 768px) {
   .dt-page {
     padding: 26px 32px 48px;
@@ -656,10 +692,17 @@ que
   border-radius: var(--dt-radius-card);
   background: var(--dt-surface);
   box-shadow: var(--dt-shadow);
+  min-width: 0;
 }
 
 .dt-card-pad {
   padding: 20px;
+}
+
+@media (max-width: 520px) {
+  .dt-card-pad {
+    padding: 14px;
+  }
 }
 
 @media (min-width: 768px) {
@@ -670,6 +713,7 @@ que
 
 .dt-card-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 14px;
@@ -713,6 +757,8 @@ que
 
 .dt-btn {
   display: inline-flex;
+  max-width: 100%;
+  min-width: 0;
   min-height: 44px;
   align-items: center;
   justify-content: center;
@@ -724,8 +770,23 @@ que
   font-weight: 600;
   line-height: 1;
   text-decoration: none;
+  text-align: center;
   cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+@media (max-width: 520px) {
+  .dt-btn {
+    width: 100%;
+    min-height: 46px;
+    padding-inline: 12px;
+    white-space: normal;
+    line-height: 1.2;
+  }
+
+  .dt-btn-sm {
+    min-height: 40px;
+  }
 }
 
 .dt-btn svg {
@@ -1090,8 +1151,19 @@ que
 
 .dt-form-grid {
   display: grid;
+  min-width: 0;
   gap: 18px;
   grid-template-columns: minmax(0, 1fr);
+}
+
+.dt-form-grid > * {
+  min-width: 0;
+}
+
+@media (max-width: 520px) {
+  .dt-form-grid {
+    gap: 14px;
+  }
 }
 
 @media (min-width: 640px) {
@@ -1115,6 +1187,7 @@ que
 
 .dt-fieldset {
   border: 0;
+  min-width: 0;
   margin: 0;
   padding: 0;
 }
@@ -1123,18 +1196,27 @@ que
   margin-top: 28px;
 }
 
+@media (max-width: 520px) {
+  .dt-fieldset + .dt-fieldset {
+    margin-top: 22px;
+  }
+}
+
 .dt-fieldset legend {
   padding: 0;
   color: var(--dt-text);
   font-size: 0.9375rem;
   font-weight: 700;
   letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
 }
 
 .dt-fieldset-hint {
   margin: 5px 0 18px;
   color: var(--dt-muted);
   font-size: 0.8125rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
 }
 
 /* ----------------------------------------------------------------- tabla */
@@ -1470,13 +1552,32 @@ escondiendo justo la columna de puntuaciones.
   gap: 10px;
 }
 
+@media (max-width: 520px) {
+  .dt-step-footer,
+  .dt-step-footer > div,
+  .dt-step-footer-actions {
+    width: 100%;
+  }
+
+  .dt-step-footer > div {
+    flex-wrap: wrap;
+  }
+
+  .dt-step-footer-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .dt-autosave {
   display: inline-flex;
+  min-width: 0;
   align-items: center;
   gap: 6px;
   color: var(--dt-muted);
   font-size: 0.75rem;
   font-weight: 500;
+  overflow-wrap: anywhere;
 }
 
 .dt-autosave svg {
@@ -1920,12 +2021,18 @@ escondiendo justo la columna de puntuaciones.
   top: calc(100% + 6px);
   left: 0;
   width: 288px;
-  max-width: calc(100vw - 40px);
+  max-width: min(288px, calc(100vw - 28px));
   border: 1px solid var(--dt-border);
   border-radius: 14px;
   background: var(--dt-surface);
   padding: 14px;
   box-shadow: 0 12px 32px rgba(13, 31, 60, 0.14);
+}
+
+@media (max-width: 340px) {
+  .dt-calendar {
+    padding: 10px;
+  }
 }
 
 .dt-calendar-head {
@@ -1938,6 +2045,8 @@ escondiendo justo la columna de puntuaciones.
 
 .dt-calendar-selectors {
   display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
   gap: 4px;
 }
 
