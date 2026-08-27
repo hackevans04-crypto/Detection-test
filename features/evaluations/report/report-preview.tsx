@@ -17,6 +17,15 @@ export function ReportPreview({ document }: { document: ReportDocument }) {
         </p>
       </header>
 
+      <section className="dt-report-summary" aria-label="Resumen del informe">
+        {document.summary.map((item) => (
+          <div key={item.label}>
+            <span>{item.label}</span>
+            <strong>{item.value}</strong>
+          </div>
+        ))}
+      </section>
+
       {document.sections.map((section) => (
         <section key={section.number} id={`informe-seccion-${section.number}`} className="dt-report-section">
           <h3>
@@ -28,6 +37,14 @@ export function ReportPreview({ document }: { document: ReportDocument }) {
                 <p key={index} className="dt-report-paragraph">
                   {block.text}
                 </p>
+              )
+            }
+            if (block.kind === 'note') {
+              return (
+                <aside key={index} className="dt-report-note">
+                  <strong>{block.title}</strong>
+                  <p>{block.text}</p>
+                </aside>
               )
             }
             if (block.kind === 'subheading') {

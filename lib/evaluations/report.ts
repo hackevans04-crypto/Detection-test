@@ -14,6 +14,7 @@ import { evaluationResults } from '@/lib/evaluations/results'
 
 export type ReportBlock =
   | { kind: 'paragraph'; text: string }
+  | { kind: 'note'; title: string; text: string }
   | { kind: 'pairs'; items: Array<{ label: string; value: string }> }
   | { kind: 'list'; items: string[] }
   | { kind: 'table'; headers: string[]; rows: string[][]; caption?: string }
@@ -30,6 +31,7 @@ export type ReportDocument = {
   subject: string
   code: string
   date: string
+  summary: Array<{ label: string; value: string }>
   sections: ReportSection[]
 }
 
@@ -39,6 +41,7 @@ export function buildReport(evaluation: Evaluation): ReportDocument {
   const { initialData } = evaluation
   const age = ageAt(initialData.person.birthDate, initialData.evaluationDate)
   const results = evaluationResults(evaluation)
+  const appliedInstrumentNames = results.map((result) => result.instrument.nombre)
 
   const sections: ReportSection[] = []
 
@@ -69,9 +72,26 @@ export function buildReport(evaluation: Evaluation): ReportDocument {
     number: 2,
     title: 'Motivo de evaluación',
     blocks: [
+      {
+        kind: 'note',
+        title: 'Propósito del apartado',
+        text: 'Explica por qué se inicia el proceso y quién solicita la valoración. Esta información orienta la lectura del resto del informe.',
+      },
       { kind: 'paragraph', text: orDash(evaluation.referral.reason, EMPTY) },
-      ...(evaluation.referral.source
-        ? [{ kind: 'pairs' as const, items: [{ label: 'Remitente', value: evaluation.referral.source }] }]
+      {
+        kind: 'pairs',
+        items: [
+          { label: 'Remitente', value: orDash(evaluation.referral.source, EMPTY) },
+          { label: 'Oficio o referencia', value: orDash(evaluation.referral.officeNumber, EMPTY) },
+          { label: 'Fecha del oficio', value: formatLongDate(evaluation.referral.officeDate) },
+          { label: 'Documento de respaldo', value: orDash(evaluation.referral.documentNumber, EMPTY) },
+        ],
+      },
+      ...(evaluation.referral.requestText.trim()
+        ? [
+            { kind: 'subheading' as const, text: 'Solicitud registrada' },
+            { kind: 'paragraph' as const, text: evaluation.referral.requestText },
+          ]
         : []),
     ],
   })
@@ -129,6 +149,11 @@ export function buildReport(evaluation: Evaluation): ReportDocument {
 
   const instrumentBlocks: ReportBlock[] = []
   if (observedAreas.length > 0) {
+    instrumentBlocks.push({
+      kind: 'note',
+      title: 'Cómo leer este apartado',
+      text: 'Primero se presenta la observación funcional registrada por áreas. Luego se listan los instrumentos aplicados y su estado normativo para diferenciar observación clínica, evidencia escolar y pruebas estandarizadas.',
+    })
     instrumentBlocks.push({ kind: 'subheading', text: 'Observación psicopedagógica funcional' })
     instrumentBlocks.push({
       kind: 'table',
@@ -175,10 +200,18 @@ export function buildReport(evaluation: Evaluation): ReportDocument {
     const isPdPt = result.instrument.scoringMode === 'pd_pt'
     resultBlocks.push({ kind: 'subheading', text: result.instrument.nombre })
     resultBlocks.push({
+      kind: 'note',
+      title: 'Criterio de lectura',
+      text: isPdPt
+        ? 'La PD corresponde a la puntuación directa registrada. La PT y la clasificación dependen del baremo disponible o de la puntuación ingresada por el profesional.'
+        : 'La PD corresponde a la puntuación directa obtenida en cada unidad. El total se interpreta sólo cuando todas las unidades requeridas están registradas.',
+    })
+    resultBlocks.push({
       kind: 'table',
       headers: isPdPt
         ? [result.instrument.unidad.singular, 'PD', 'PT', 'Clasificación']
         : [result.instrument.unidad.singular, 'Área', 'PD', 'Máximo'],
+      caption: `Resultados registrados en ${result.instrument.nombre}.`,
       rows: result.rows.map((row) =>
         isPdPt
           ? [row.nombre, row.pd === null ? '—' : String(row.pd), row.pt === null ? '—' : String(row.pt), row.classification ?? 'Conversión no disponible']
@@ -298,6 +331,17 @@ export function buildReport(evaluation: Evaluation): ReportDocument {
     subject: orDash(initialData.person.fullName, 'Evaluado'),
     code: evaluation.code,
     date: formatLongDate(initialData.evaluationDate),
+    summary: [
+      { label: 'Evaluado', value: orDash(initialData.person.fullName, EMPTY) },
+      { label: 'Edad a la evaluación', value: age ? formatAge(age) : EMPTY },
+      { label: 'Institución educativa', value: orDash(initialData.person.institution, EMPTY) },
+      { label: 'Grado o curso', value: orDash(initialData.person.grade, EMPTY) },
+      {
+        label: 'Instrumentos aplicados',
+        value: appliedInstrumentNames.length > 0 ? appliedInstrumentNames.join(', ') : 'No se aplicaron instrumentos estandarizados.',
+      },
+      { label: 'Profesional responsable', value: orDash(professional.name, orDash(evaluation.evaluatorName, EMPTY)) },
+    ],
     sections,
   }
 }

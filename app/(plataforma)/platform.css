@@ -3231,6 +3231,44 @@ escondiendo justo la columna de puntuaciones.
   font-size: 0.8125rem;
 }
 
+.dt-report-summary {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border: 1px solid var(--dt-border);
+  border-radius: 12px;
+  background: var(--dt-primary-tint);
+  margin-bottom: 26px;
+  padding: 14px;
+}
+
+@media (max-width: 640px) {
+  .dt-report-summary {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.dt-report-summary div {
+  min-width: 0;
+}
+
+.dt-report-summary span {
+  display: block;
+  color: var(--dt-muted);
+  font-size: 0.625rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.dt-report-summary strong {
+  display: block;
+  margin-top: 3px;
+  color: var(--dt-text);
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
 .dt-report-section {
   margin-bottom: 26px;
 }
@@ -3257,6 +3295,28 @@ escondiendo justo la columna de puntuaciones.
   font-size: 0.875rem;
   line-height: 1.7;
   white-space: pre-wrap;
+}
+
+.dt-report-note {
+  border-left: 3px solid var(--dt-primary);
+  border-radius: 10px;
+  background: var(--dt-primary-tint);
+  margin: 0 0 14px;
+  padding: 12px 14px;
+}
+
+.dt-report-note strong {
+  display: block;
+  color: var(--dt-primary-strong);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.dt-report-note p {
+  margin: 4px 0 0;
+  color: var(--dt-text-soft);
+  font-size: 0.8125rem;
+  line-height: 1.55;
 }
 
 .dt-report-pairs {

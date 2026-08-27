@@ -349,6 +349,39 @@ function renderIdentityStrip(writer: PdfWriter, document: ReportDocument) {
   writer.space(height + 12)
 }
 
+function renderSummary(writer: PdfWriter, document: ReportDocument) {
+  writer.keepTogether(96)
+  writer.text('RESUMEN EJECUTIVO', { size: 8.5, font: 'bold', color: PRIMARY })
+  writer.space(2)
+  writer.rule(RULE, 0.6)
+
+  for (const item of document.summary) {
+    writer.keepTogether(26)
+    writer.text(item.label.toUpperCase(), { size: 6.5, font: 'bold', color: MUTED })
+    writer.text(item.value, { size: 9.2, leading: 12.8, color: INK })
+    writer.space(3)
+  }
+
+  writer.space(6)
+}
+
+function renderNote(writer: PdfWriter, title: string, text: string) {
+  const titleHeight = 12
+  const textLines = wrap(text, 8.8, 'regular', CONTENT_WIDTH - 24)
+  const height = titleHeight + textLines.length * 12 + 14
+  writer.keepTogether(height)
+
+  const start = writer.cursor
+  writer.band(height, BAND)
+  writer.raw(`${PRIMARY} rg ${MARGIN_X} ${start - height} 3 ${height} re f`)
+  writer.space(8)
+  writer.text(title.toUpperCase(), { size: 6.8, font: 'bold', color: PRIMARY, indent: 12, maxWidth: CONTENT_WIDTH - 24 })
+  writer.text(text, { size: 8.8, leading: 12, color: INK_SOFT, indent: 12, maxWidth: CONTENT_WIDTH - 24 })
+
+  const consumed = start - writer.cursor
+  writer.space(Math.max(6, height - consumed + 4))
+}
+
 /** Créditos del cierre: universidad y quien desarrolla el sistema. */
 function renderCredits(writer: PdfWriter, assets: ReportAssets) {
   // Cabe al pie de la última página de contenido; reservar de más lo mandaba
@@ -385,19 +418,25 @@ function renderDocument(document: ReportDocument, assets: ReportAssets) {
   writer.text(document.title.toUpperCase(), { size: 16, font: 'bold', color: INK, align: 'center' })
   writer.space(10)
   renderIdentityStrip(writer, document)
+  renderSummary(writer, document)
 
   for (const section of document.sections) {
-    writer.keepTogether(46)
+    writer.keepTogether(48)
     writer.space(10)
-    writer.text(`${section.number}.  ${section.title.toUpperCase()}`, { size: 10.5, font: 'bold', color: PRIMARY })
-    writer.space(1)
-    writer.rule(RULE, 0.7)
-    writer.space(2)
+    writer.band(24, BAND)
+    writer.raw(`${PRIMARY} rg ${MARGIN_X} ${writer.cursor - 24} 4 24 re f`)
+    writer.space(7)
+    writer.text(`${section.number}.  ${section.title.toUpperCase()}`, { size: 9.8, font: 'bold', color: INK, indent: 12 })
+    writer.space(4)
 
     for (const block of section.blocks) {
       if (block.kind === 'paragraph') {
         writer.text(block.text, { size: 9.5, leading: 14 })
         writer.space(4)
+      }
+
+      if (block.kind === 'note') {
+        renderNote(writer, block.title, block.text)
       }
 
       if (block.kind === 'subheading') {
@@ -432,6 +471,10 @@ function renderDocument(document: ReportDocument, assets: ReportAssets) {
             ? [CONTENT_WIDTH * 0.42, CONTENT_WIDTH * 0.28, CONTENT_WIDTH * 0.13, CONTENT_WIDTH * 0.17]
             : Array.from({ length: columnCount }, () => CONTENT_WIDTH / columnCount)
         writer.keepTogether(60)
+        if (block.caption) {
+          writer.text(block.caption, { size: 7.5, color: MUTED })
+          writer.space(3)
+        }
         writer.row(block.headers, widths, 'bold', BAND)
         block.rows.forEach((row, index) => writer.row(row, widths, 'regular', index % 2 === 1 ? ZEBRA : undefined))
         writer.space(8)
