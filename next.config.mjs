@@ -16,7 +16,7 @@ const nextConfig = {
           { key: 'Strict-Transport-Security', value: 'max-age=63072000' },
           {
             key: 'Permissions-Policy',
-            value: 'camera=(), microphone=(), geolocation=()',
+            value: 'camera=(self), microphone=(), geolocation=()',
           },
         ],
       },

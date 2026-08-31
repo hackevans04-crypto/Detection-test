@@ -30,6 +30,7 @@ tmp/
 *.tsbuildinfo
 *.lnk
 .next-build/
+.next-verify/
 
 # High-resolution source exports (the app commits the optimized runtime GLBs)
 public/detection-home/platform/models/Hi3D_*.glb
