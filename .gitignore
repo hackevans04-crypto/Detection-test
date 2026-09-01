@@ -34,3 +34,7 @@ tmp/
 
 # High-resolution source exports (the app commits the optimized runtime GLBs)
 public/detection-home/platform/models/Hi3D_*.glb
+
+# El proyecto usa pnpm (ver packageManager en package.json y pnpm-workspace.yaml).
+# Un package-lock.json de npm rompe la deteccion de gestor en Vercel.
+package-lock.json
