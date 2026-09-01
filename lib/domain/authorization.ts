@@ -104,6 +104,24 @@ export const rolePermissions: Record<RoleCode, PermissionCode[]> = {
   CONSULTA: ['dashboard.read', 'students.read', 'records.read.basic'],
 }
 
+/**
+ * Traduce un valor externo -variable de entorno, cabecera, formulario- a un rol
+ * conocido. Devuelve `null` cuando no lo reconoce, para que quien llama elija el
+ * respaldo en vez de arrastrar un rol inexistente hasta `rolePermissions`.
+ *
+ * Tolera lo que suele llegar de un panel de despliegue: espacios sobrantes,
+ * minúsculas y comillas pegadas al copiar el valor desde `.env.example`.
+ */
+export function parseRole(value: string | null | undefined): RoleCode | null {
+  const normalized = value?.trim().replace(/^["']|["']$/g, '').toUpperCase()
+  if (!normalized) return null
+  return (roles as readonly string[]).includes(normalized) ? (normalized as RoleCode) : null
+}
+
+/**
+ * Un rol desconocido no concede nada. Antes indexaba `rolePermissions` a ciegas
+ * y un valor fuera del catálogo rompía el prerender con `undefined.includes`.
+ */
 export function can(role: RoleCode, permission: PermissionCode) {
-  return rolePermissions[role].includes(permission)
+  return rolePermissions[role]?.includes(permission) ?? false
 }

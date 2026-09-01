@@ -1,4 +1,4 @@
-import { can, type PermissionCode, type RoleCode } from '@/lib/domain/authorization'
+import { can, parseRole, type PermissionCode, type RoleCode } from '@/lib/domain/authorization'
 
 export type SessionUser = {
   id: string
@@ -34,7 +34,7 @@ export async function getSession(): Promise<AppSession> {
       id: process.env.DETECTION_TEST_USER_ID ?? 'profesional-local',
       name: process.env.DETECTION_TEST_USER_NAME ?? 'Profesional',
       email: process.env.DETECTION_TEST_USER_EMAIL ?? '',
-      role: (process.env.DETECTION_TEST_USER_ROLE as RoleCode | undefined) ?? 'PSICOPEDAGOGO',
+      role: parseRole(process.env.DETECTION_TEST_USER_ROLE) ?? 'PSICOPEDAGOGO',
       title: process.env.DETECTION_TEST_USER_TITLE ?? 'Psicopedagogía',
     },
     institution: {
