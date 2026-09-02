@@ -29,6 +29,29 @@ export function digitsOf(value: string) {
   return value.replace(/\D/g, '')
 }
 
+export function onlyDigits(value: string, maxLength?: number) {
+  const digits = digitsOf(value)
+  return typeof maxLength === 'number' ? digits.slice(0, maxLength) : digits
+}
+
+export function ecuadorPhoneDigits(value: string) {
+  const digits = digitsOf(value)
+  const national = digits.startsWith('593') ? `0${digits.slice(3)}` : digits
+  return national.slice(0, 10)
+}
+
+export function integerPercent(value: string) {
+  return onlyDigits(value, 3).replace(/^0+(?=\d)/, '')
+}
+
+export function nameText(value: string) {
+  return value.replace(/[^\p{L}\p{M}'’´· .-]/gu, '').replace(/\s{2,}/g, ' ')
+}
+
+export function documentCode(value: string) {
+  return value.replace(/[^\p{L}\p{N}/ .°º#-]/gu, '').slice(0, 40)
+}
+
 /**
  * Cédula ecuatoriana: módulo 10 sobre los nueve primeros dígitos.
  *
@@ -55,27 +78,21 @@ export function isEcuadorianId(value: string) {
 }
 
 /**
- * Documento de identidad. Diez dígitos se leen como cédula y se comprueban;
- * cualquier otra cosa se admite como pasaporte u otro documento.
+ * Documento de identidad del evaluado: cédula ecuatoriana obligatoria cuando
+ * se registra este campo. Debe tener diez dígitos y superar el verificador.
  */
 export function validateIdentification(value: string): FieldIssue | null {
   const trimmed = value.trim()
   if (!trimmed) return null
 
   const digits = digitsOf(trimmed)
-  const looksLikeId = digits.length === 10 && digits === trimmed.replace(/[\s-]/g, '')
-
-  if (looksLikeId) {
-    return isEcuadorianId(trimmed)
-      ? null
-      : { message: 'La cédula no supera el dígito verificador. Revisa los números.', severity: 'error' }
+  if (digits !== trimmed) {
+    return { message: 'La cédula sólo debe contener números.', severity: 'error' }
   }
-
-  if (trimmed.length < 5) {
-    return { message: 'Escribe una cédula de 10 dígitos o el número de pasaporte.', severity: 'error' }
-  }
-
-  return { message: 'No es una cédula ecuatoriana: se registrará como pasaporte u otro documento.', severity: 'warning' }
+  if (digits.length !== 10) return { message: 'La cédula debe tener exactamente 10 dígitos.', severity: 'error' }
+  return isEcuadorianId(trimmed)
+    ? null
+    : { message: 'La cédula no supera el dígito verificador. Revisa los números.', severity: 'error' }
 }
 
 /**

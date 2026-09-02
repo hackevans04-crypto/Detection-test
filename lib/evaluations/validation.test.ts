@@ -8,6 +8,11 @@ import {
   validateFullName,
   validateIdentification,
   validatePhone,
+  onlyDigits,
+  ecuadorPhoneDigits,
+  integerPercent,
+  nameText,
+  documentCode,
 } from '@/lib/evaluations/validation'
 
 /**
@@ -54,14 +59,30 @@ describe('documento de identidad', () => {
     expect(validateIdentification('1710034060')?.severity).toBe('error')
   })
 
-  it('admite un pasaporte como otro documento, avisando', () => {
-    const issue = validateIdentification('AB1234567')
-    expect(issue?.severity).toBe('warning')
-    expect(issue?.message).toContain('pasaporte')
+  it('rechaza letras y exige diez dígitos', () => {
+    expect(validateIdentification('AB1234567')?.severity).toBe('error')
+    expect(validateIdentification('171003406')?.message).toContain('10 dígitos')
+    expect(validateIdentification('17100340655')?.message).toContain('10 dígitos')
   })
 
   it('rechaza un documento demasiado corto', () => {
     expect(validateIdentification('123')?.severity).toBe('error')
+  })
+})
+
+describe('normalizadores de entrada', () => {
+  it('limita cédula y campos numéricos a dígitos', () => {
+    expect(onlyDigits('17a100-34065', 10)).toBe('1710034065')
+    expect(integerPercent('040.5')).toBe('40')
+  })
+
+  it('convierte teléfono internacional de Ecuador a nacional', () => {
+    expect(ecuadorPhoneDigits('+593 98 765 4321')).toBe('0987654321')
+  })
+
+  it('retira caracteres inválidos de nombres y documentos', () => {
+    expect(nameText('Ana M4ría!')).toBe('Ana Mría')
+    expect(documentCode('Oficio <025>@2026')).toBe('Oficio 0252026')
   })
 })
 

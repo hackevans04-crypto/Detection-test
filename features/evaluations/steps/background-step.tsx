@@ -14,6 +14,7 @@ import {
   type BackgroundBlock,
 } from '@/lib/evaluations/background-schema'
 import { newIntervention, type BackgroundSectionId, type Intervention } from '@/lib/evaluations/model'
+import { onlyDigits } from '@/lib/evaluations/validation'
 
 const documentTypes = ['Informe', 'Certificado', 'Ficha de seguimiento', 'Derivación', 'Otro'] as const
 
@@ -288,8 +289,11 @@ function InterventionsSection({
               <TextField
                 label="Año"
                 value={intervention.year}
-                onChange={(next) => patch(intervention.id, { year: next })}
+                onChange={(next) => patch(intervention.id, { year: onlyDigits(next, 4) })}
                 placeholder="Ej. 2024"
+                inputMode="numeric"
+                maxLength={4}
+                pattern="\d{4}"
               />
               <TextareaField
                 label="Resultado"

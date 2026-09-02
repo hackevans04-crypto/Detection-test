@@ -14,6 +14,10 @@ import {
   validatePersonName,
   validatePhone,
   validateRequiredText,
+  ecuadorPhoneDigits,
+  integerPercent,
+  nameText,
+  onlyDigits,
   type FieldIssue,
 } from '@/lib/evaluations/validation'
 
@@ -80,7 +84,7 @@ export function InitialDataForm({
             label="Nombres y apellidos"
             required
             value={value.person.fullName}
-            onChange={(next) => setPerson('fullName', next)}
+            onChange={(next) => setPerson('fullName', nameText(next))}
             placeholder="Nombre completo del evaluado"
             autoComplete="off"
             {...issue('fullName')}
@@ -107,8 +111,11 @@ export function InitialDataForm({
           <TextField
             label="Cédula / Identificación"
             value={value.person.identification}
-            onChange={(next) => setPerson('identification', next)}
-            placeholder="Número de documento"
+            onChange={(next) => setPerson('identification', onlyDigits(next, 10))}
+            placeholder="0123456789"
+            inputMode="numeric"
+            maxLength={10}
+            pattern="\d{10}"
             {...issue('identification')}
           />
           <SelectField
@@ -138,10 +145,12 @@ export function InitialDataForm({
           {hasDisability ? (
             <TextField
               label="Porcentaje (%)"
-              type="number"
               value={value.person.disabilityPercent}
-              onChange={(next) => setPerson('disabilityPercent', next)}
+              onChange={(next) => setPerson('disabilityPercent', integerPercent(next))}
               placeholder="Según carné de discapacidad"
+              inputMode="numeric"
+              maxLength={3}
+              pattern="\d{1,3}"
               hint="Sólo si consta en el carné."
               {...issue('disabilityPercent')}
             />
@@ -172,7 +181,7 @@ export function InitialDataForm({
           <TextField
             label="Docente tutor"
             value={value.person.tutor}
-            onChange={(next) => setPerson('tutor', next)}
+            onChange={(next) => setPerson('tutor', nameText(next))}
             placeholder="Nombre del docente"
             {...issue('tutor')}
           />
@@ -193,8 +202,11 @@ export function InitialDataForm({
             label="Teléfono"
             type="tel"
             value={value.person.phone}
-            onChange={(next) => setPerson('phone', next)}
+            onChange={(next) => setPerson('phone', ecuadorPhoneDigits(next))}
             placeholder="099 000 0000"
+            inputMode="tel"
+            maxLength={10}
+            pattern="0(9\d{8}|[2-7]\d{7})"
             {...issue('phone')}
           />
           <TextField
@@ -215,21 +227,21 @@ export function InitialDataForm({
           <TextField
             label="Nombre de la madre"
             value={value.family.motherName}
-            onChange={(next) => setFamily('motherName', next)}
+            onChange={(next) => setFamily('motherName', nameText(next))}
             placeholder="Nombre completo"
             {...issue('motherName')}
           />
           <TextField
             label="Nombre del padre"
             value={value.family.fatherName}
-            onChange={(next) => setFamily('fatherName', next)}
+            onChange={(next) => setFamily('fatherName', nameText(next))}
             placeholder="Nombre completo"
             {...issue('fatherName')}
           />
           <TextField
             label="Representante legal"
             value={value.family.guardianName}
-            onChange={(next) => setFamily('guardianName', next)}
+            onChange={(next) => setFamily('guardianName', nameText(next))}
             placeholder="Nombre completo"
             {...issue('guardianName')}
           />
@@ -244,8 +256,11 @@ export function InitialDataForm({
             label="Teléfono del representante"
             type="tel"
             value={value.family.guardianPhone}
-            onChange={(next) => setFamily('guardianPhone', next)}
+            onChange={(next) => setFamily('guardianPhone', ecuadorPhoneDigits(next))}
             placeholder="099 000 0000"
+            inputMode="tel"
+            maxLength={10}
+            pattern="0(9\d{8}|[2-7]\d{7})"
             {...issue('guardianPhone')}
           />
           <TextField

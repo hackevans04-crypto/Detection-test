@@ -13,6 +13,7 @@ import { buildReport, reportFileName } from '@/lib/evaluations/report'
 import { stepIds, stepLabels } from '@/lib/evaluations/model'
 import { evaluationProgress } from '@/lib/evaluations/progress'
 import { formatUpdatedAt } from '@/lib/evaluations/format'
+import { documentCode, nameText } from '@/lib/evaluations/validation'
 
 const contentSteps = stepIds.filter((step) => step !== 'informe')
 
@@ -170,7 +171,7 @@ export function FinalReportStep() {
               label="Profesional responsable"
               required
               value={professional.name}
-              onChange={(next) => setProfessional({ name: next })}
+              onChange={(next) => setProfessional({ name: nameText(next) })}
               placeholder="Nombres y apellidos"
             />
             <TextField
@@ -183,8 +184,9 @@ export function FinalReportStep() {
             <TextField
               label="N.º de registro profesional"
               value={professional.registryNumber}
-              onChange={(next) => setProfessional({ registryNumber: next })}
+              onChange={(next) => setProfessional({ registryNumber: documentCode(next) })}
               placeholder="Si aplica"
+              maxLength={40}
             />
             <DateField
               label="Fecha de emisión"

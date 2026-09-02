@@ -1,6 +1,6 @@
 'use client'
 
-import { useId, useRef, type ReactNode } from 'react'
+import { useId, useRef, type InputHTMLAttributes, type ReactNode } from 'react'
 import { AlertCircle, AlertTriangle, Check, ChevronDown } from 'lucide-react'
 import { useSelectListbox } from '@/components/ui/use-select-listbox'
 
@@ -75,6 +75,10 @@ export function TextField({
   placeholder,
   readOnly,
   autoComplete,
+  inputMode,
+  maxLength,
+  pattern,
+  transformValue,
   ...base
 }: BaseProps & {
   value: string
@@ -83,6 +87,10 @@ export function TextField({
   placeholder?: string
   readOnly?: boolean
   autoComplete?: string
+  inputMode?: InputHTMLAttributes<HTMLInputElement>['inputMode']
+  maxLength?: number
+  pattern?: string
+  transformValue?: (value: string) => string
 }) {
   const id = useId()
   return (
@@ -96,10 +104,13 @@ export function TextField({
           placeholder={placeholder}
           readOnly={readOnly}
           autoComplete={autoComplete}
+          inputMode={inputMode}
+          maxLength={maxLength}
+          pattern={pattern}
           required={base.required}
           aria-invalid={base.error ? true : undefined}
           aria-describedby={describedBy}
-          onChange={(event) => onChange?.(event.target.value)}
+          onChange={(event) => onChange?.(transformValue ? transformValue(event.target.value) : event.target.value)}
         />
       )}
     </FieldFrame>

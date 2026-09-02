@@ -9,6 +9,7 @@ import { StepFooter } from '@/features/evaluations/workspace/step-footer'
 import { useEvaluation } from '@/features/evaluations/workspace/evaluation-provider'
 import { missingReferralFields } from '@/lib/evaluations/progress'
 import type { Referral } from '@/lib/evaluations/model'
+import { documentCode } from '@/lib/evaluations/validation'
 
 /**
  * Instancias que derivan casos en el sistema educativo ecuatoriano. Es una
@@ -69,14 +70,16 @@ export function ReferralStep() {
             <TextField
               label="Número de oficio"
               value={evaluation.referral.documentNumber}
-              onChange={(next) => setField('documentNumber', next)}
+              onChange={(next) => setField('documentNumber', documentCode(next))}
               placeholder="S/N si no consta"
+              maxLength={40}
             />
             <TextField
               label="Oficio / Documento"
               value={evaluation.referral.officeNumber}
-              onChange={(next) => setField('officeNumber', next)}
+              onChange={(next) => setField('officeNumber', documentCode(next))}
               placeholder="Ej. Oficio N.º 025-2026"
+              maxLength={40}
             />
             <DateField
               label="Fecha del oficio"
