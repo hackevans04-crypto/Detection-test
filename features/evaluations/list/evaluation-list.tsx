@@ -347,8 +347,8 @@ export function EvaluationList() {
                 />
               ) : (
                 <>
-                  <div className="dt-table-wrap dt-scroll">
-                    <table className="dt-table">
+                  <div className="dt-table-wrap dt-scroll dt-evaluations-table-wrap">
+                    <table className="dt-table dt-evaluations-table">
                       <caption className="dt-sr-only">Evaluaciones psicopedagógicas</caption>
                       <thead>
                         <tr>
@@ -372,7 +372,7 @@ export function EvaluationList() {
                           const names = instrumentNames(evaluation)
                           return (
                             <tr key={evaluation.id}>
-                              <td>
+                              <td data-label="Evaluado">
                                 <span className="dt-table-person">
                                   <Avatar name={name} size="sm" />
                                   <span className="min-w-0">
@@ -381,7 +381,7 @@ export function EvaluationList() {
                                   </span>
                                 </span>
                               </td>
-                              <td style={{ whiteSpace: 'nowrap' }}>
+                              <td data-label="Edad / Curso" style={{ whiteSpace: 'nowrap' }}>
                                 {formatAgeShort(
                                   ageAt(evaluation.initialData.person.birthDate, evaluation.initialData.evaluationDate),
                                 )}
@@ -390,14 +390,14 @@ export function EvaluationList() {
                                   {orDash(evaluation.initialData.person.grade, 'Curso no registrado')}
                                 </span>
                               </td>
-                              <td>
+                              <td data-label="Etapa actual">
                                 {currentStageLabel(evaluation)}
                                 <br />
                                 <span style={{ color: 'var(--dt-faint)' }}>
                                   {progress.completedSteps} de {progress.totalSteps} etapas
                                 </span>
                               </td>
-                              <td>
+                              <td data-label="Instrumento">
                                 {names.length === 0 ? (
                                   <span style={{ color: 'var(--dt-faint)' }}>—</span>
                                 ) : (
@@ -408,7 +408,7 @@ export function EvaluationList() {
                                   ))
                                 )}
                               </td>
-                              <td style={{ minWidth: 128 }}>
+                              <td data-label="Progreso" style={{ minWidth: 128 }}>
                                 <span className="mb-1.5 block text-xs font-semibold">{progress.percent}%</span>
                                 <EvaluationProgressBar
                                   percent={progress.percent}
@@ -416,12 +416,14 @@ export function EvaluationList() {
                                   label={`Progreso de ${name}`}
                                 />
                               </td>
-                              <td style={{ whiteSpace: 'nowrap' }}>{formatUpdatedAt(evaluation.updatedAt)}</td>
-                              <td>
+                              <td data-label="Actualizacion" style={{ whiteSpace: 'nowrap' }}>
+                                {formatUpdatedAt(evaluation.updatedAt)}
+                              </td>
+                              <td data-label="Estado">
                                 <EvaluationStatusBadge status={evaluation.status} />
                               </td>
-                              <td>
-                                <span className="flex items-center justify-end gap-2">
+                              <td data-label="Acciones">
+                                <span className="dt-evaluation-actions">
                                   <Link
                                     href={`/evaluaciones/${evaluation.id}/datos-iniciales`}
                                     className="dt-btn dt-btn-ghost dt-btn-sm"

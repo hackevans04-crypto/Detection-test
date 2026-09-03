@@ -1304,6 +1304,149 @@ escondiendo justo la columna de puntuaciones.
   white-space: nowrap;
 }
 
+.dt-evaluations-table {
+  min-width: 0;
+  table-layout: fixed;
+}
+
+.dt-evaluations-table th,
+.dt-evaluations-table td {
+  overflow-wrap: anywhere;
+}
+
+.dt-evaluations-table th:nth-child(1) {
+  width: 18%;
+}
+
+.dt-evaluations-table th:nth-child(2),
+.dt-evaluations-table th:nth-child(3),
+.dt-evaluations-table th:nth-child(5),
+.dt-evaluations-table th:nth-child(6),
+.dt-evaluations-table th:nth-child(7) {
+  width: 12%;
+}
+
+.dt-evaluations-table th:nth-child(4) {
+  width: 13%;
+}
+
+.dt-evaluations-table th:nth-child(8) {
+  width: 9%;
+}
+
+.dt-evaluations-table .dt-table-person {
+  min-width: 0;
+}
+
+.dt-evaluations-table .dt-table-person strong {
+  overflow-wrap: anywhere;
+}
+
+.dt-evaluation-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+@media (max-width: 1180px) {
+  .dt-evaluations-table thead th,
+  .dt-evaluations-table tbody td {
+    padding-inline: 10px;
+  }
+
+  .dt-evaluations-table {
+    font-size: 0.765rem;
+  }
+}
+
+@media (max-width: 860px) {
+  .dt-evaluations-table-wrap {
+    overflow-x: visible;
+  }
+
+  .dt-evaluations-table,
+  .dt-evaluations-table thead,
+  .dt-evaluations-table tbody,
+  .dt-evaluations-table tr,
+  .dt-evaluations-table th,
+  .dt-evaluations-table td {
+    display: block;
+  }
+
+  .dt-evaluations-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .dt-evaluations-table tbody {
+    display: grid;
+    gap: 12px;
+  }
+
+  .dt-evaluations-table tbody tr {
+    border: 1px solid var(--dt-border);
+    border-radius: var(--dt-radius-card);
+    background: var(--dt-surface);
+    box-shadow: var(--dt-shadow-sm);
+    overflow: hidden;
+  }
+
+  .dt-evaluations-table tbody td {
+    display: grid;
+    grid-template-columns: minmax(96px, 34%) minmax(0, 1fr);
+    gap: 12px;
+    align-items: center;
+    border-bottom: 1px solid var(--dt-border);
+    padding: 12px 14px;
+    white-space: normal !important;
+  }
+
+  .dt-evaluations-table tbody td::before {
+    content: attr(data-label);
+    color: var(--dt-muted);
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .dt-evaluations-table tbody td:first-child {
+    grid-template-columns: 1fr;
+    padding-block: 14px;
+  }
+
+  .dt-evaluations-table tbody td:first-child::before {
+    display: none;
+  }
+
+  .dt-evaluations-table tbody tr:hover td {
+    background: transparent;
+  }
+
+  .dt-evaluation-actions {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 520px) {
+  .dt-evaluations-table tbody td {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .dt-evaluation-actions .dt-btn {
+    flex: 1 1 128px;
+    justify-content: center;
+  }
+}
+
 /* ------------------------------------------------------------------ tabs */
 
 .dt-tabs {
