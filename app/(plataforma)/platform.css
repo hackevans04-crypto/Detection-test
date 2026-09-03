@@ -1315,23 +1315,26 @@ escondiendo justo la columna de puntuaciones.
 }
 
 .dt-evaluations-table th:nth-child(1) {
-  width: 18%;
+  width: 17%;
 }
 
 .dt-evaluations-table th:nth-child(2),
 .dt-evaluations-table th:nth-child(3),
 .dt-evaluations-table th:nth-child(5),
-.dt-evaluations-table th:nth-child(6),
+.dt-evaluations-table th:nth-child(6) {
+  width: 11%;
+}
+
 .dt-evaluations-table th:nth-child(7) {
-  width: 12%;
+  width: 10%;
 }
 
 .dt-evaluations-table th:nth-child(4) {
-  width: 13%;
+  width: 11%;
 }
 
 .dt-evaluations-table th:nth-child(8) {
-  width: 9%;
+  width: 18%;
 }
 
 .dt-evaluations-table .dt-table-person {
@@ -1349,6 +1352,11 @@ escondiendo justo la columna de puntuaciones.
   gap: 8px;
 }
 
+.dt-evaluation-actions .dt-btn {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
 @media (max-width: 1180px) {
   .dt-evaluations-table thead th,
   .dt-evaluations-table tbody td {
@@ -1357,6 +1365,19 @@ escondiendo justo la columna de puntuaciones.
 
   .dt-evaluations-table {
     font-size: 0.765rem;
+  }
+
+  .dt-evaluations-table th:nth-child(1) {
+    width: 16%;
+  }
+
+  .dt-evaluations-table th:nth-child(4),
+  .dt-evaluations-table th:nth-child(7) {
+    width: 10%;
+  }
+
+  .dt-evaluations-table th:nth-child(8) {
+    width: 20%;
   }
 }
 
