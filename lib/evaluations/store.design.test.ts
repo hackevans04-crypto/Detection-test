@@ -45,4 +45,24 @@ describe('DesignEvaluationStore', () => {
     expect(evaluation.currentStep).toBe('areas')
     expect(instruments).toEqual([])
   })
+
+  it('usa almacenamiento local cuando el servidor no tiene base de datos disponible', async () => {
+    vi.stubEnv('NEXT_PUBLIC_DESIGN_MODE', 'false')
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ error: 'No se pudo sincronizar con el servidor.', code: 'DATABASE_UNAVAILABLE' }), {
+          status: 503,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      ),
+    )
+
+    const { DESIGN_MODE, listEvaluations } = await import('@/lib/evaluations/store')
+    const evaluations = await listEvaluations('profesional-local')
+
+    expect(DESIGN_MODE).toBe(false)
+    expect(evaluations).toHaveLength(1)
+    expect(evaluations[0]?.id).toBe(designId)
+  })
 })

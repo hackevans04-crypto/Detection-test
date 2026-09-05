@@ -418,8 +418,76 @@ class ServerEvaluationStore extends BaseRepository {
   }
 }
 
+function shouldUseLocalFallback(error: unknown) {
+  if (error instanceof TypeError) return true
+  if (!(error instanceof EvaluationStoreError)) return false
+  return error.status === 503 || error.status === 502 || error.status === 0
+}
+
+class ResilientEvaluationStore extends BaseRepository {
+  private localFallback: DesignEvaluationStore | null = null
+
+  constructor(private readonly server = new ServerEvaluationStore()) {
+    super()
+  }
+
+  private fallback(error: unknown) {
+    if (!shouldUseLocalFallback(error)) throw error
+    this.localFallback ??= new DesignEvaluationStore()
+    console.warn('[Evaluation Store] Servidor no disponible; usando almacenamiento local de sesion.', error)
+    return this.localFallback
+  }
+
+  async listEvaluations(evaluatorId?: string): Promise<Evaluation[]> {
+    if (this.localFallback) return this.localFallback.listEvaluations(evaluatorId)
+    try {
+      return await this.server.listEvaluations(evaluatorId)
+    } catch (error) {
+      const fallback = this.fallback(error)
+      const evaluations = await fallback.listEvaluations(evaluatorId)
+      return evaluations.length > 0 ? evaluations : fallback.listEvaluations()
+    }
+  }
+
+  async getEvaluation(id: string): Promise<Evaluation | null> {
+    if (this.localFallback) return this.localFallback.getEvaluation(id)
+    try {
+      return await this.server.getEvaluation(id)
+    } catch (error) {
+      return this.fallback(error).getEvaluation(id)
+    }
+  }
+
+  async saveEvaluation(evaluation: Evaluation): Promise<Evaluation> {
+    if (this.localFallback) return this.localFallback.saveEvaluation(evaluation)
+    try {
+      return await this.server.saveEvaluation(evaluation)
+    } catch (error) {
+      return this.fallback(error).saveEvaluation(evaluation)
+    }
+  }
+
+  async createEvaluation(input: CreateEvaluationInput): Promise<Evaluation> {
+    if (this.localFallback) return this.localFallback.createEvaluation(input)
+    try {
+      return await this.server.createEvaluation(input)
+    } catch (error) {
+      return this.fallback(error).createEvaluation(input)
+    }
+  }
+
+  async deleteEvaluation(id: string): Promise<void> {
+    if (this.localFallback) return this.localFallback.deleteEvaluation(id)
+    try {
+      await this.server.deleteEvaluation(id)
+    } catch (error) {
+      await this.fallback(error).deleteEvaluation(id)
+    }
+  }
+}
+
 function createRepository(): EvaluationRepository {
-  return DESIGN_MODE ? new DesignEvaluationStore() : new ServerEvaluationStore()
+  return DESIGN_MODE ? new DesignEvaluationStore() : new ResilientEvaluationStore()
 }
 
 export const evaluationRepository = createRepository()
