@@ -860,6 +860,7 @@ body:has(.dt) {
 
 .dt-badge {
   display: inline-flex;
+  max-width: 100%;
   align-items: center;
   gap: 6px;
   border-radius: 999px;
@@ -873,6 +874,7 @@ body:has(.dt) {
 .dt-badge svg {
   height: 12px;
   width: 12px;
+  flex: 0 0 auto;
 }
 
 .dt-badge[data-tone='neutral'] {
@@ -1317,30 +1319,36 @@ escondiendo justo la columna de puntuaciones.
 
 .dt-evaluations-table th,
 .dt-evaluations-table td {
-  overflow-wrap: anywhere;
+  overflow-wrap: normal;
 }
 
 .dt-evaluations-table th:nth-child(1) {
-  width: 17%;
+  width: 16%;
 }
 
 .dt-evaluations-table th:nth-child(2),
-.dt-evaluations-table th:nth-child(3),
-.dt-evaluations-table th:nth-child(5),
+.dt-evaluations-table th:nth-child(5) {
+  width: 10%;
+}
+
+.dt-evaluations-table th:nth-child(3) {
+  width: 11%;
+}
+
+.dt-evaluations-table th:nth-child(4) {
+  width: 12%;
+}
+
 .dt-evaluations-table th:nth-child(6) {
   width: 11%;
 }
 
 .dt-evaluations-table th:nth-child(7) {
-  width: 10%;
-}
-
-.dt-evaluations-table th:nth-child(4) {
   width: 11%;
 }
 
 .dt-evaluations-table th:nth-child(8) {
-  width: 18%;
+  width: 19%;
 }
 
 .dt-evaluations-table .dt-table-person {
@@ -1349,6 +1357,23 @@ escondiendo justo la columna de puntuaciones.
 
 .dt-evaluations-table .dt-table-person strong {
   overflow-wrap: anywhere;
+}
+
+.dt-evaluations-table td:nth-child(5),
+.dt-evaluations-table td:nth-child(6),
+.dt-evaluations-table td:nth-child(7),
+.dt-evaluations-table td:nth-child(8) {
+  white-space: nowrap;
+}
+
+.dt-evaluations-table td:nth-child(5) {
+  min-width: 118px;
+}
+
+.dt-evaluations-table td:nth-child(7) .dt-badge {
+  width: 100%;
+  justify-content: center;
+  padding-inline: 8px;
 }
 
 .dt-evaluation-actions {
@@ -1366,7 +1391,7 @@ escondiendo justo la columna de puntuaciones.
 @media (max-width: 1180px) {
   .dt-evaluations-table thead th,
   .dt-evaluations-table tbody td {
-    padding-inline: 10px;
+    padding-inline: 8px;
   }
 
   .dt-evaluations-table {
@@ -1374,20 +1399,38 @@ escondiendo justo la columna de puntuaciones.
   }
 
   .dt-evaluations-table th:nth-child(1) {
-    width: 16%;
+    width: 17%;
   }
 
-  .dt-evaluations-table th:nth-child(4),
+  .dt-evaluations-table th:nth-child(4) {
+    width: 11%;
+  }
+
+  .dt-evaluations-table th:nth-child(6),
   .dt-evaluations-table th:nth-child(7) {
-    width: 10%;
+    width: 11%;
   }
 
   .dt-evaluations-table th:nth-child(8) {
-    width: 20%;
+    width: 19%;
+  }
+
+  .dt-evaluations-table td:nth-child(7) .dt-badge {
+    font-size: 0.625rem;
+    gap: 4px;
+  }
+
+  .dt-evaluation-actions {
+    gap: 6px;
+  }
+
+  .dt-evaluation-actions .dt-btn {
+    min-height: 34px;
+    padding-inline: 9px;
   }
 }
 
-@media (max-width: 860px) {
+@media (max-width: 1024px) {
   .dt-evaluations-table-wrap {
     overflow-x: visible;
   }
@@ -1459,6 +1502,18 @@ escondiendo justo la columna de puntuaciones.
   .dt-evaluation-actions {
     justify-content: flex-start;
     flex-wrap: wrap;
+  }
+
+  .dt-evaluations-table td:nth-child(5),
+  .dt-evaluations-table td:nth-child(6),
+  .dt-evaluations-table td:nth-child(7),
+  .dt-evaluations-table td:nth-child(8) {
+    white-space: normal;
+  }
+
+  .dt-evaluations-table td:nth-child(7) .dt-badge {
+    width: fit-content;
+    justify-content: flex-start;
   }
 }
 
@@ -2216,6 +2271,16 @@ escondiendo justo la columna de puntuaciones.
   background: var(--dt-surface);
   padding: 14px;
   box-shadow: 0 12px 32px rgba(13, 31, 60, 0.14);
+}
+
+.dt-calendar[data-placement$='end'] {
+  right: 0;
+  left: auto;
+}
+
+.dt-calendar[data-placement^='top'] {
+  top: auto;
+  bottom: calc(100% + 6px);
 }
 
 @media (max-width: 340px) {
@@ -2996,8 +3061,38 @@ escondiendo justo la columna de puntuaciones.
 @media (min-width: 768px) {
   .dt-list-toolbar {
     flex-direction: row;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
+  }
+
+  .dt-list-toolbar .dt-tabs {
+    flex: 1 1 620px;
+  }
+}
+
+.dt-list-tools {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+@media (min-width: 768px) {
+  .dt-list-tools {
+    flex: 0 0 348px;
+    justify-content: flex-end;
+  }
+
+  .dt-list-tools .dt-search {
+    width: 236px;
+  }
+}
+
+@media (max-width: 767px) {
+  .dt-list-tools {
+    flex-direction: column;
+    align-items: stretch;
   }
 }
 
@@ -9611,54 +9706,6 @@ body {
   font-weight: 800;
 }
 
-.dt-evaluation-list-table {
-  overflow: visible;
-}
-
-.dt-evaluation-list-table .dt-table {
-  table-layout: fixed;
-  width: 100%;
-}
-
-.dt-evaluation-list-table th:nth-child(1),
-.dt-evaluation-list-table td:nth-child(1) {
-  width: 28%;
-}
-
-.dt-evaluation-list-table th:nth-child(2),
-.dt-evaluation-list-table td:nth-child(2) {
-  width: 13%;
-}
-
-.dt-evaluation-list-table th:nth-child(3),
-.dt-evaluation-list-table td:nth-child(3) {
-  width: 17%;
-}
-
-.dt-evaluation-list-table th:nth-child(4),
-.dt-evaluation-list-table td:nth-child(4) {
-  width: 16%;
-}
-
-.dt-evaluation-list-table th:nth-child(5),
-.dt-evaluation-list-table td:nth-child(5) {
-  width: 12%;
-}
-
-.dt-evaluation-list-table th:nth-child(6),
-.dt-evaluation-list-table td:nth-child(6) {
-  width: 9%;
-}
-
-.dt-evaluation-list-table th:nth-child(7),
-.dt-evaluation-list-table td:nth-child(7) {
-  width: 5%;
-}
-
-.dt-evaluation-list-table td,
-.dt-evaluation-list-table th {
-  overflow-wrap: anywhere;
-}
 
 @media (max-width: 900px) {
   .dt-evaluation-list-table table,

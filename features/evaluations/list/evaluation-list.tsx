@@ -276,7 +276,7 @@ export function EvaluationList() {
                   ))}
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="dt-list-tools">
                   <label className="dt-search md:w-72">
                     <Search aria-hidden="true" />
                     <span className="dt-sr-only">Buscar evaluado</span>

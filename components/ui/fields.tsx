@@ -22,6 +22,12 @@ type BaseProps = {
   className?: string
 }
 
+function normalizeInputValue(value: string, type: 'text' | 'tel' | 'email' | 'number') {
+  if (type === 'tel' || type === 'number') return value.replace(/\D/g, '')
+  if (type === 'email') return value.replace(/\s/g, '').toLowerCase()
+  return value
+}
+
 function FieldFrame({
   label,
   required,
@@ -110,7 +116,10 @@ export function TextField({
           required={base.required}
           aria-invalid={base.error ? true : undefined}
           aria-describedby={describedBy}
-          onChange={(event) => onChange?.(transformValue ? transformValue(event.target.value) : event.target.value)}
+          onChange={(event) => {
+            const next = transformValue ? transformValue(event.target.value) : normalizeInputValue(event.target.value, type)
+            onChange?.(next)
+          }}
         />
       )}
     </FieldFrame>

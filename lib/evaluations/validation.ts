@@ -210,3 +210,26 @@ export function validateDisabilityPercent(value: string, hasDisability: boolean)
 export function validateRequiredText(value: string, message: string): FieldIssue | null {
   return value.trim() ? null : { message, severity: 'error' }
 }
+
+export function validateLongText(value: string, label: string, minLength = 10): FieldIssue | null {
+  const trimmed = value.trim()
+  if (!trimmed) return { message: `Escribe ${label}.`, severity: 'error' }
+  if (trimmed.length < minLength) return { message: `Completa ${label} con mas detalle.`, severity: 'error' }
+  return null
+}
+
+export function validateDocumentCode(value: string, label = 'documento'): FieldIssue | null {
+  const trimmed = value.trim()
+  if (!trimmed) return null
+  if (documentCode(trimmed) !== trimmed) {
+    return { message: `El ${label} contiene caracteres no permitidos.`, severity: 'error' }
+  }
+  return null
+}
+
+export function validateOptionalDate(value: string, label: string): FieldIssue | null {
+  if (!value.trim()) return null
+  const date = new Date(`${value.slice(0, 10)}T00:00:00`)
+  if (Number.isNaN(date.getTime())) return { message: `La fecha de ${label} no es valida.`, severity: 'error' }
+  return null
+}

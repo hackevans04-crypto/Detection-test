@@ -70,6 +70,7 @@ export function DateField({
   const [picker, setPicker] = useState<'days' | 'months' | 'years'>('days')
   const [view, setView] = useState({ year: selected?.year ?? today.getFullYear(), month: selected?.month ?? today.getMonth() })
   const [yearPage, setYearPage] = useState(0)
+  const [placement, setPlacement] = useState<'bottom-start' | 'bottom-end' | 'top-start' | 'top-end'>('bottom-start')
   const wrapRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -86,6 +87,22 @@ export function DateField({
       document.removeEventListener('mousedown', onPointerDown)
       document.removeEventListener('keydown', onKeyDown)
     }
+  }, [open])
+
+  useEffect(() => {
+    if (!open || typeof window === 'undefined') return
+    const frame = window.requestAnimationFrame(() => {
+      const rect = wrapRef.current?.getBoundingClientRect()
+      if (!rect) return
+
+      const calendarWidth = Math.min(288, window.innerWidth - 28)
+      const calendarHeight = 462
+      const opensEnd = rect.left + calendarWidth > window.innerWidth - 14
+      const opensUp = rect.bottom + calendarHeight > window.innerHeight - 14 && rect.top > calendarHeight
+      setPlacement(`${opensUp ? 'top' : 'bottom'}-${opensEnd ? 'end' : 'start'}`)
+    })
+
+    return () => window.cancelAnimationFrame(frame)
   }, [open])
 
   // Cuando el valor cambia desde fuera, el calendario se reencuadra en el mes
@@ -159,7 +176,13 @@ export function DateField({
         </button>
 
         {open ? (
-          <div id={`${id}-calendar`} className="dt-calendar" role="dialog" aria-label={`Calendario de ${label.toLowerCase()}`}>
+          <div
+            id={`${id}-calendar`}
+            className="dt-calendar"
+            data-placement={placement}
+            role="dialog"
+            aria-label={`Calendario de ${label.toLowerCase()}`}
+          >
             <div className="dt-calendar-head">
               <div className="dt-calendar-selectors">
                 <button
