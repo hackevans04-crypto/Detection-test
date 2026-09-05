@@ -15,6 +15,7 @@ import {
   type ActorSpec,
   type Framing,
 } from '@/lib/hero/stage'
+import type { PlatformStateRef } from '@/components/platform/platform-state'
 
 type SceneStateRef = MutableRefObject<HeroSceneState>
 
@@ -377,11 +378,12 @@ function NestedAssemblyActor({
 }
 
 export function StageCastActors({
-  cast, sceneState, framing,
+  cast, sceneState, framing, platformState,
 }: {
   cast: StageCast
   sceneState: SceneStateRef
   framing: Framing
+  platformState: PlatformStateRef
 }) {
   const sources = useGLTF([BRAIN_URL, ...ACTORS.map((actor) => actor.url)], false, true) as unknown as Array<{ scene: THREE.Group }>
   const brainMaterial = useActorMaterial(sources[0].scene, '#0a3f96', 0.08, true)
@@ -461,7 +463,18 @@ export function StageCastActors({
       rightPivot.current.rotation.set(-0.028 * explode, -0.14 * explode, 0.075 * explode)
     }
 
-    const alpha = directed.actorWeights.brain * openingSubjectReveal(signal.progress)
+    /*
+      `actorWeights.brain` vale 0,82 en el plano `END` a propósito —el
+      cerebro se deja entrever al cerrar Inicio— pero ese plano se queda
+      clavado para siempre en cuanto Plataforma empieza (`resolveHeroDirector`
+      no vuelve a moverse). Nada en el riel de Plataforma había mirado nunca
+      hacia donde vive esta malla, así que ese residuo era invisible — hasta
+      la Platform Chamber de esta pasada, cuyo plano ancho sí cruza por ahí.
+      Se apaga con el propio progreso de Plataforma, mismo patrón que ya se
+      aplicó a `PlatformPortalTunnel` en la costura de entrada.
+    */
+    const platformFade = 1 - smootherstep(0, 0.02, platformState.current.progress)
+    const alpha = directed.actorWeights.brain * openingSubjectReveal(signal.progress) * platformFade
     brainMaterial.opacity = alpha
     brainMaterial.depthWrite = alpha > 0.8
     assembly.current?.getWorldPosition(worldCenter)

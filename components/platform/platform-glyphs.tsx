@@ -3,7 +3,8 @@
 import { useFrame } from '@react-three/fiber'
 import { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
-import { CONCEPTS, conceptFrame, smootherstep } from '@/lib/platform/timeline'
+import { CONCEPTS, conceptFrame, smootherstep, stationArrival, stationRestFloor } from '@/lib/platform/timeline'
+import { STATION_ANCHORS } from '@/lib/platform/camera-rail'
 import { CONCEPT_GLYPHS, assetExists } from '@/lib/platform/hud'
 import type { PlatformStateRef } from './platform-state'
 
@@ -44,7 +45,15 @@ type GlyphProps = {
   sceneState: PlatformStateRef
 }
 
-export function PlatformGlyph({ url, window: conceptWindow, position, accent, size = 0.85, sceneState }: GlyphProps) {
+/*
+  `size` medido contra la cámara real de cada estación: a ~2,1 u de
+  distancia con FOV 44, el anillo de escaneo (`spread` llega a 1,7×`size`)
+  ocupaba con 0,85 hasta el 85% de la altura del encuadre — un ícono a
+  pantalla completa e ilegible, justo la queja de "la cámara llena la
+  pantalla". Con 0,46 el anillo se queda cerca del 45%: presente, pero deja
+  ver el fondo y el texto de la tarjeta a su lado.
+*/
+export function PlatformGlyph({ url, window: conceptWindow, position, accent, size = 0.46, sceneState }: GlyphProps) {
   const texture = useGlyphTexture(url)
   const sprite = useRef<THREE.Sprite>(null)
   const material = useRef<THREE.SpriteMaterial>(null)
@@ -54,7 +63,23 @@ export function PlatformGlyph({ url, window: conceptWindow, position, accent, si
   useFrame((state) => {
     const signal = sceneState.current
     const frame = conceptFrame(signal.progress, conceptWindow)
-    const shown = frame.visibility
+    /*
+      Piso de presencia (punto 9): la estación activa sube a 1; las otras
+      tres no desaparecen, se quedan en un 0,25–0,4 fijo mientras dura la
+      visita interior (`stationRestFloor`). Antes cada glifo se apagaba del
+      todo al ceder el turno y la sala interior quedaba vacía entre estación
+      y estación — con las cuatro ancladas en su sitio del compás todo el
+      tiempo, el interior se lee como una sala con cuatro puestos, no como
+      una diapositiva que cambia.
+
+      El encendido a "activo" (por encima del piso) además exige llegada real
+      (`stationArrival`, punto 4): la ventana de progreso sola ya no basta
+      para prender el glifo del todo, tiene que coincidir con la cámara
+      realmente mirando su ancla — mismo cálculo que usa la tarjeta de texto
+      en `platform-chapter.tsx`, para que los dos se enciendan juntos.
+    */
+    const arrival = stationArrival(signal.cameraTarget, position)
+    const shown = Math.max(frame.visibility * arrival, stationRestFloor(signal.progress))
 
     if (sprite.current) {
       sprite.current.visible = shown > 0.004
@@ -64,7 +89,7 @@ export function PlatformGlyph({ url, window: conceptWindow, position, accent, si
       const scale = size * (0.45 + 0.55 * overshoot) * breath
       sprite.current.scale.set(scale, scale, 1)
     }
-    if (material.current) material.current.opacity = shown * 0.92
+    if (material.current) material.current.opacity = shown * 0.8
 
     if (ring.current && ringMaterial.current) {
       const scan = smootherstep(0, 0.42, frame.local) * (1 - smootherstep(0.42, 0.78, frame.local))
@@ -112,41 +137,47 @@ export function PlatformGlyph({ url, window: conceptWindow, position, accent, si
 }
 
 /**
- * Donde se ancla cada glifo en el mundo.
+ * Dónde se ancla cada glifo en el mundo — segunda pasada.
  *
- * Los cuatro viven en el costado por el que pasa la camara durante todo el
- * tramo de lectura (siempre desde -x), escalonados en altura y profundidad para
- * que no se solapen entre ellos. Ninguno se mete en el volumen del cubo, que
- * ocupa x +/-1,3, ni en el de sus capas abiertas.
- *
- * Y todos van CERCA, a dos unidades del costado: a tres ya se salian del
- * encuadre por la izquierda, porque la camara mira al cubo muy escorada.
- *
- * Ninguno cae donde va su tarjeta: las tarjetas se colocan a la derecha de la
- * pantalla (.platform-concept), asi que el icono queda junto al cubo y el texto
- * al margen, sin pisarse.
+ * Antes los cuatro vivían agrupados a un costado del cubo, porque la cámara
+ * nunca dejaba de mirarlo desde fuera. Ahora que el tramo interior mete la
+ * cámara dentro del núcleo, cada glifo va en su puesto del compás
+ * (`STATION_ANCHORS` en `lib/platform/camera-rail.ts`: Evaluación arriba,
+ * Organización a la izquierda, Análisis a la derecha, Inclusión abajo) —
+ * el mismo punto al que apunta la cámara en su propia parada
+ * (`STATION_EVALUATION`/`STATION_ORGANIZATION`/… en el riel), así que el
+ * icono siempre cae justo donde la cámara está mirando.
  */
-const PLACEMENTS: Array<{ position: [number, number, number]; accent: string }> = [
-  { position: [-1.95, 1.85, -8.2], accent: '#70efff' },
-  { position: [-2.05, -1.55, -8.45], accent: '#46b8ff' },
-  { position: [-2.1, 1.75, -9.85], accent: '#8c7bff' },
-  { position: [-1.95, -1.45, -10.1], accent: '#53e0d0' },
-]
+const ACCENTS: Record<(typeof CONCEPTS)[number]['key'], string> = {
+  evaluation: '#70efff',
+  organization: '#46b8ff',
+  analysis: '#8c7bff',
+  inclusion: '#53e0d0',
+}
 
 /** Los cuatro glifos del kit, cada uno con la ventana de su concepto. */
 export function PlatformGlyphs({ sceneState }: { sceneState: PlatformStateRef }) {
   return (
     <group name="PlatformGlyphs">
-      {CONCEPTS.map((concept, index) => (
+      {CONCEPTS.map((concept) => (
         <PlatformGlyph
           key={concept.key}
           url={CONCEPT_GLYPHS[concept.key]}
           window={concept.window}
-          position={PLACEMENTS[index].position}
-          accent={PLACEMENTS[index].accent}
+          position={STATION_ANCHORS[concept.key as keyof typeof STATION_ANCHORS]}
+          accent={ACCENTS[concept.key]}
           sceneState={sceneState}
         />
       ))}
     </group>
   )
 }
+
+/*
+  Novena pasada: la presentación por caras del cubo (`PlatformFaceGlyph`/
+  `PlatformFaceGlyphs`, holograma por cara + conector + nodos orbitando) se
+  eliminó junto con `CUBE_FACES`/`faceHologramWeight` en
+  `lib/platform/timeline.ts` — ver el comentario junto a `PLATFORM_BEATS`.
+  Los cuatro conceptos se presentan ahora una sola vez, con `PlatformGlyph`/
+  `PlatformGlyphs` arriba, en las estaciones interiores.
+*/

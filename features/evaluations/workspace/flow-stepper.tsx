@@ -19,7 +19,7 @@ import { stepIds, stepShortLabels, type StepId, type StepStatus } from '@/lib/ev
 export type FlowStep = {
   key: string
   label: string
-  status: StepStatus
+  status: StepStatus | 'COMPLETED_WITH_LIMITATIONS' | 'LOCKED' | 'AVAILABLE'
   href?: string
 }
 
@@ -40,7 +40,7 @@ export function FlowStepper({ steps, ariaLabel = 'Etapas de la evaluación' }: {
             <span className="dt-flow-track">
               <i className="dt-flow-line" data-side="left" data-hidden={index === 0} aria-hidden="true" />
               <span className="dt-flow-mark" aria-hidden="true">
-                {step.status === 'COMPLETED' ? <Check /> : index + 1}
+                {step.status === 'COMPLETED' || step.status === 'COMPLETED_WITH_LIMITATIONS' ? <Check /> : index + 1}
               </span>
               <i className="dt-flow-line" data-side="right" data-hidden={index === steps.length - 1} aria-hidden="true" />
             </span>
@@ -49,15 +49,16 @@ export function FlowStepper({ steps, ariaLabel = 'Etapas de la evaluación' }: {
         )
 
         const current = step.status === 'IN_PROGRESS'
-        const label = `${index + 1}. ${step.label}${step.status === 'COMPLETED' ? ' (completada)' : ''}`
+        const completed = step.status === 'COMPLETED' || step.status === 'COMPLETED_WITH_LIMITATIONS'
+        const label = `${index + 1}. ${step.label}${completed ? ' (completada)' : ''}`
 
         return (
-          <li key={step.key} style={{ display: 'flex', flex: '1 0 44px', minWidth: 0 }}>
+          <li key={step.key} className="dt-flow-item">
             {step.href ? (
               <Link
                 href={step.href}
                 className="dt-flow-step"
-                data-status={step.status}
+                data-status={completed ? 'COMPLETED' : current ? 'IN_PROGRESS' : 'PENDING'}
                 aria-current={current ? 'step' : undefined}
                 title={step.label}
                 aria-label={label}
@@ -67,7 +68,7 @@ export function FlowStepper({ steps, ariaLabel = 'Etapas de la evaluación' }: {
             ) : (
               <span
                 className="dt-flow-step"
-                data-status={step.status}
+                data-status={completed ? 'COMPLETED' : current ? 'IN_PROGRESS' : 'PENDING'}
                 data-interactive="false"
                 aria-current={current ? 'step' : undefined}
                 title={step.label}

@@ -10,7 +10,9 @@ import {
   resumeStep,
 } from '@/lib/evaluations/progress'
 import type { Evaluation } from '@/lib/evaluations/model'
+import { createEvaluationInstrument } from '@/lib/evaluations/model'
 import { functionalAreaSchema } from '@/lib/evaluations/functional-areas'
+import { createInstrumentPackage } from '@/lib/instruments/import/package-model'
 
 const abcFull = makeApplication('test-abc', {
   'abc-1': { pd: '1' },
@@ -23,7 +25,7 @@ const abcFull = makeApplication('test-abc', {
   'abc-8': { pd: '1' },
 })
 
-/** Evaluación con las ocho etapas de contenido cerradas. */
+/** Evaluacion con las nueve etapas de contenido cerradas. */
 function completeEvaluation(overrides: Partial<Evaluation> = {}): Evaluation {
   const base = makeEvaluation()
   const functionalAreas = Object.fromEntries(
@@ -85,6 +87,55 @@ describe('completitud por etapa', () => {
     expect(isStepComplete(makeEvaluation({ instrumentApplications: { 'test-abc': abcFull } }), 'instrumentos')).toBe(true)
   })
 
+  it('acepta un paquete de Instrumentos IA procesado como cierre funcional del paso 6', () => {
+    const entry = createEvaluationInstrument({
+      instrumentId: 'pkg-stai',
+      name: 'STAI',
+      order: 1,
+      applicationMode: 'IMPORTED',
+      professionalId: 'prof',
+      professionalName: 'Profesional',
+    })
+    const pkg = createInstrumentPackage({ evaluationId: 'eval-test', createdBy: 'prof' })
+    pkg.id = 'pkg-stai'
+    pkg.name = 'STAI'
+    pkg.stage = 'REVIEW'
+    pkg.readiness = 'PARTIAL_READY'
+    pkg.files = [
+      {
+        id: 'stai-xls',
+        path: 'STAI.rar/AUTOMATIZADO.xls',
+        name: 'AUTOMATIZADO.xls',
+        extension: 'xls',
+        declaredMime: '',
+        detectedMime: null,
+        size: 100,
+        checksum: 'checksum',
+        role: 'AUTOMATED_SPREADSHEET',
+        confidence: 0.8,
+        evidence: ['Hoja de cálculo detectada.'],
+        status: 'ACCEPTED',
+        reason: '',
+        extractedFrom: 'archive',
+      },
+    ]
+    pkg.computedResults = [
+      {
+        measureId: 'total',
+        label: 'Total',
+        rawValue: '42',
+        transformedValue: null,
+        percentile: null,
+        classification: null,
+        sourceFile: 'AUTOMATIZADO.xls',
+        sourceLocation: null,
+        confidence: 0.8,
+      },
+    ]
+
+    expect(isStepComplete(makeEvaluation({ battery: [entry], instrumentPackages: [pkg] }), 'instrumentos')).toBe(true)
+  })
+
   it('no da instrumentos por completos cuando no hay ninguno', () => {
     expect(isStepComplete(makeEvaluation(), 'instrumentos')).toBe(false)
   })
@@ -114,7 +165,7 @@ describe('estado de la evaluación', () => {
     expect(deriveStatus(makeEvaluation())).toBe('IN_PROGRESS')
   })
 
-  it('pasa a por finalizar cuando las ocho etapas de contenido están cerradas', () => {
+  it('pasa a por finalizar cuando las nueve etapas de contenido estan cerradas', () => {
     expect(deriveStatus(completeEvaluation())).toBe('READY_FOR_REVIEW')
   })
 
@@ -127,17 +178,17 @@ describe('estado de la evaluación', () => {
 })
 
 describe('progreso', () => {
-  it('cuenta nueve etapas y redondea el porcentaje', () => {
+  it('cuenta diez etapas y redondea el porcentaje sobre el flujo completo', () => {
     const progress = evaluationProgress(makeEvaluation())
-    expect(progress.totalSteps).toBe(9)
-    expect(progress.completedSteps).toBe(2)
-    expect(progress.percent).toBe(22)
+    expect(progress.totalSteps).toBe(10)
+    expect(progress.completedSteps).toBe(4)
+    expect(progress.percent).toBe(40)
   })
 
   it('llega al 100 % de contenido sin el informe generado', () => {
     const progress = evaluationProgress(completeEvaluation())
     expect(progress.contentPercent).toBe(100)
-    expect(progress.percent).toBe(89)
+    expect(progress.percent).toBe(100)
     expect(progress.pendingSteps).toEqual([])
   })
 

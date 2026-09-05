@@ -21,6 +21,14 @@ export type PlatformSceneState = {
   fov: number
   assemblyWeight: number
   reactorWeight: number
+  /** Sube durante ACTIVATION, antes de que `assemblyWeight` mueva nada. */
+  activationWeight: number
+  /**
+   * Campana corta cuando la cámara cruza un portal (entrada o salida).
+   * La escribe `DirectedCameraRig` en `hero-scene.tsx`; el composer la lee
+   * para el pulso de FOV/bloom/aberración cromática — ver Fase A/E.
+   */
+  portalCrossWeight: number
   activeConcept: string
   fps: number
   drawCalls: number
@@ -52,6 +60,8 @@ export function createPlatformSceneState(): PlatformSceneState {
     fov: 39.2,
     assemblyWeight: 0,
     reactorWeight: 0,
+    activationWeight: 0,
+    portalCrossWeight: 0,
     activeConcept: '—',
     fps: 0,
     drawCalls: 0,

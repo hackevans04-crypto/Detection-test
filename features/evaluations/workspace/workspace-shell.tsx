@@ -1,17 +1,14 @@
 'use client'
 
 import type { ReactNode } from 'react'
+import { usePathname } from 'next/navigation'
 import { FileQuestion } from 'lucide-react'
 import { PageHeader } from '@/components/app-shell/page-header'
 import { EmptyState, ErrorState, LoadingSkeleton, Skeleton } from '@/components/ui/states'
 import { EvaluationProvider } from '@/features/evaluations/workspace/evaluation-provider'
 import { EvaluationWorkspaceLayout } from '@/features/evaluations/workspace/evaluation-workspace'
+import { InstrumentCenterUnavailable } from '@/features/evaluations/instruments/center/instrument-center'
 
-/**
- * Puente entre el layout de servidor y el proveedor de cliente: aquí viven los
- * tres estados de carga del expediente, que el servidor no puede pasar como
- * funciones.
- */
 export function EvaluationWorkspaceShell({
   evaluationId,
   children,
@@ -19,15 +16,18 @@ export function EvaluationWorkspaceShell({
   evaluationId: string
   children: ReactNode
 }) {
+  const pathname = usePathname()
+  const isInstrumentRoute = pathname.endsWith('/instrumentos')
+
   return (
     <EvaluationProvider
       evaluationId={evaluationId}
       renderLoading={() => (
         <>
-          <PageHeader title="Cargando evaluación…" />
+          <PageHeader title="Cargando evaluación..." />
           <div className="dt-page">
-            <Skeleton style={{ height: 116 }} />
-            <LoadingSkeleton rows={1} height={420} label="Cargando la evaluación" />
+            <Skeleton style={{ height: 96 }} />
+            <LoadingSkeleton rows={1} height={300} label="Cargando la evaluación" />
           </div>
         </>
       )}
@@ -35,9 +35,16 @@ export function EvaluationWorkspaceShell({
         <>
           <PageHeader title="Evaluación psicopedagógica" />
           <div className="dt-page">
-            <div className="dt-card">
-              <ErrorState description={message} onRetry={retry} />
-            </div>
+            {isInstrumentRoute ? (
+              <InstrumentCenterUnavailable
+                status={message.toLowerCase().includes('red') ? 'NETWORK_ERROR' : 'DATABASE_UNAVAILABLE'}
+                onRetry={retry}
+              />
+            ) : (
+              <div className="dt-card">
+                <ErrorState description={message} onRetry={retry} />
+              </div>
+            )}
           </div>
         </>
       )}

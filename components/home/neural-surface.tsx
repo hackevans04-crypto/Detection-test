@@ -4,8 +4,9 @@ import { useFrame } from '@react-three/fiber'
 import { useEffect, useMemo, useRef, type MutableRefObject } from 'react'
 import * as THREE from 'three'
 import { MeshSurfaceSampler } from 'three/examples/jsm/math/MeshSurfaceSampler.js'
-import type { HeroSceneState } from '@/lib/hero/depth'
+import { smootherstep, type HeroSceneState } from '@/lib/hero/depth'
 import type { Framing } from '@/lib/hero/stage'
+import type { PlatformStateRef } from '@/components/platform/platform-state'
 
 type Quality = 'high' | 'medium' | 'low'
 
@@ -20,6 +21,7 @@ type Props = {
   framing: Framing
   quality: Quality
   sceneState: MutableRefObject<HeroSceneState>
+  platformState: PlatformStateRef
 }
 
 const NODE_TARGET: Record<Quality, number> = { high: 56, medium: 40, low: 26 }
@@ -160,7 +162,7 @@ const fragmentShader = /* glsl */ `
  * material, con el impulso resuelto en el vértice—, una para los nodos y una
  * para los arcos.
  */
-export function NeuralSurface({ geometry, center, meshRadius, brainScale, framing, quality, sceneState }: Props) {
+export function NeuralSurface({ geometry, center, meshRadius, brainScale, framing, quality, sceneState, platformState }: Props) {
   const group = useRef<THREE.Group>(null)
   const scaleRoot = useRef<THREE.Group>(null)
   const nodesRef = useRef<THREE.InstancedMesh>(null)
@@ -350,7 +352,20 @@ export function NeuralSurface({ geometry, center, meshRadius, brainScale, framin
     */
     const assembled = 1 - Math.min(directed.assemblyExplode * 4, 1)
     // Base de fase + un empujón muy pequeño. El cerebro no debe reventar de brillo.
-    const intensity = Math.min(directed.neuralIntensity + signal.scrollEnergy * 0.08, 1) * assembled
+    /*
+      `neuralIntensity` llega a 0 en el plano `END`, pero `scrollEnergy` es
+      un pulso de actividad reciente que no sabe en qué capítulo está: con
+      progreso saltando por `__handoffSetProgress` (o un scroll real muy
+      brusco justo al cruzar a Plataforma) puede quedar un residuo por
+      encima del umbral de 0,01 con el que se decide `group.visible` — la
+      cámara de Plataforma nunca había mirado hacia donde vive esta malla,
+      así que ese residuo era invisible hasta la Platform Chamber de esta
+      pasada, cuyo plano ancho SÍ lo cruza. `platformFade` lo apaga del
+      todo en cuanto Plataforma empieza, sin depender de que `scrollEnergy`
+      decaiga a tiempo.
+    */
+    const platformFade = 1 - smootherstep(0, 0.02, platformState.current.progress)
+    const intensity = Math.min(directed.neuralIntensity + signal.scrollEnergy * 0.08, 1) * assembled * platformFade
     material.uniforms.uTime.value = signal.time
     material.uniforms.uEnergy.value = signal.scrollEnergy
     material.uniforms.uIntensity.value = intensity

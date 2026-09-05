@@ -1,6 +1,6 @@
 import { getInstrument } from '@/instruments/catalog'
 import type { Instrument } from '@/instruments/types'
-import { classifyABC, classifyProCalculoPT } from '@/lib/evaluation-engine'
+import { baremoLabel, classifyWithBaremos } from '@/lib/instruments/baremo'
 import type { Evaluation } from '@/lib/evaluations/model'
 
 /**
@@ -54,9 +54,10 @@ export function instrumentResult(evaluation: Evaluation, instrumentId: string): 
     const pd = entry ? toNumber(entry.pd) : null
     const pt = entry ? toNumber(entry.pt) : null
 
+    // La puntuación típica se clasifica con el baremo del propio instrumento.
     let classification: string | null = null
-    if (instrument.scoringMode === 'pd_pt') {
-      classification = pt === null ? null : classifyProCalculoPT(pt)
+    if (instrument.scoringMode === 'pd_pt' && pt !== null) {
+      classification = baremoLabel(classifyWithBaremos(instrument.baremos, pt))
     }
 
     return {
@@ -76,9 +77,13 @@ export function instrumentResult(evaluation: Evaluation, instrumentId: string): 
   const pdTotal = rows.reduce((sum, row) => sum + (row.pd ?? 0), 0)
   const complete = recorded === rows.length
 
-  // El baremo total del Test ABC se aplica sobre los ocho subtests. Aplicarlo
-  // con subtests sin registrar daría un rango falsamente bajo.
-  const global = instrument.scoringMode === 'manual_score' && complete ? classifyABC(pdTotal) : null
+  // El baremo global se aplica sobre el total de subtests. Aplicarlo con
+  // subtests sin registrar daría un rango falsamente bajo.
+  const globalBaremo =
+    instrument.scoringMode === 'manual_score' && complete
+      ? classifyWithBaremos(instrument.baremos, pdTotal)
+      : null
+  const global = globalBaremo ? { range: globalBaremo.rango, level: globalBaremo.nivel } : null
 
   const notices: string[] = []
   if (!complete) {
@@ -143,10 +148,10 @@ function distributionOf(points: ProfilePoint[]) {
 /**
  * Perfil de un instrumento, en su propia escala.
  *
- * Un gráfico por instrumento y no uno común: la puntuación del Test ABC va de
- * 0 a 3 y la puntuación típica de PRO-CÁLCULO se mueve alrededor de 50. Puestas
- * en la misma barra, un 1 sobre 3 y una PT de 38 parecían lo mismo sin serlo,
- * y esa comparación no significa nada.
+ * Un gráfico por instrumento y no uno común: una puntuación directa sobre un
+ * máximo de 3 y una puntuación típica que se mueve alrededor de 50 no comparten
+ * escala. Puestas en la misma barra, un 1 sobre 3 y una PT de 38 parecían lo
+ * mismo sin serlo, y esa comparación no significa nada.
  */
 export function instrumentProfile(result: InstrumentResult): InstrumentProfile {
   if (result.instrument.scoringMode === 'manual_score') {

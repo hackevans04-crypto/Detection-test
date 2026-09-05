@@ -156,17 +156,51 @@ const NEURAL_KEYS: ReadonlyArray<readonly [number, number]> = [
   [until('PLATFORM'), 0.12],
 ]
 
-export function getNeuralPhaseIntensity(progress: number) {
-  if (progress <= NEURAL_KEYS[0][0]) return NEURAL_KEYS[0][1]
-  for (let index = 1; index < NEURAL_KEYS.length; index += 1) {
-    const [toAt, toValue] = NEURAL_KEYS[index]
+function sampleKeyedCurve(progress: number, keys: ReadonlyArray<readonly [number, number]>) {
+  if (progress <= keys[0][0]) return keys[0][1]
+  for (let index = 1; index < keys.length; index += 1) {
+    const [toAt, toValue] = keys[index]
     if (progress > toAt) continue
-    const [fromAt, fromValue] = NEURAL_KEYS[index - 1]
+    const [fromAt, fromValue] = keys[index - 1]
     const span = Math.max(toAt - fromAt, 1e-6)
     const t = Math.min(Math.max((progress - fromAt) / span, 0), 1)
     // Smootherstep: sin salto de valor ni de pendiente en las claves.
     const eased = t * t * t * (t * (t * 6 - 15) + 10)
     return fromValue + (toValue - fromValue) * eased
   }
-  return NEURAL_KEYS[NEURAL_KEYS.length - 1][1]
+  return keys[keys.length - 1][1]
+}
+
+export function getNeuralPhaseIntensity(progress: number) {
+  return sampleKeyedCurve(progress, NEURAL_KEYS)
+}
+
+/**
+ * Cuánto manda el túnel neural (la estructura pesada: filamentos, compuertas,
+ * nodos y el polvo de superficie) frente al resto del interior.
+ *
+ * Antes todo el reparto interior competía al mismo brillo durante el 56 % del
+ * capítulo que va de ENTRY a INNER_EXIT, así que no había un sujeto claro en
+ * ningún fotograma. Esta curva le da al túnel su momento —el vuelo de ENTRY a
+ * ARRIVAL, que es literalmente «atravesar el corredor»— y lo retira a un piso
+ * bajo mientras se leen los cuatro conceptos, donde el protagonismo pasa al
+ * núcleo y al texto. Vuelve a asomar un poco en INNER_EXIT, cuando las piezas
+ * empiezan a reunirse para el reensamble.
+ *
+ * Es la misma técnica que `getNeuralPhaseIntensity`: una tabla de claves sobre
+ * esta misma línea de tiempo, no un número nuevo que un componente inventa.
+ */
+const TUNNEL_LEAD_KEYS: ReadonlyArray<readonly [number, number]> = [
+  [at('UNLOCK'), 0.3],
+  [at('DISASSEMBLY'), 0.55],
+  [at('ENTRY'), 1],
+  [at('ARRIVAL'), 0.86],
+  [at('EVALUATION'), 0.4],
+  [at('INNER_EXIT'), 0.58],
+  [at('REASSEMBLY'), 0.3],
+  [at('INSTITUTION'), 0.12],
+]
+
+export function getTunnelLeadIntensity(progress: number) {
+  return sampleKeyedCurve(progress, TUNNEL_LEAD_KEYS)
 }

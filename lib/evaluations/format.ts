@@ -44,7 +44,7 @@ export type Age = { years: number; months: number; decimal: number }
 
 /**
  * Edad exacta a la fecha de evaluación. `decimal` es la que comparan los
- * rangos de los instrumentos (el Test ABC habla de 5½ a 6½ años).
+ * rangos de aplicación, que suelen expresarse en años y medios años.
  */
 export function ageAt(birthDate: string, referenceDate: string): Age | null {
   if (!birthDate || !referenceDate) return null

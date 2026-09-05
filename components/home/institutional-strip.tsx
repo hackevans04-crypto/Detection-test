@@ -52,9 +52,19 @@ export function InstitutionalStrip({ sceneState }: { sceneState?: MutableRefObje
           </div>
         </article>
 
-        <div className="institutional-connection" aria-hidden="true">
-          <i /><span /><i />
-        </div>
+        <article className="institutional-card neuro-card">
+          <div className="developer-content">
+            <ParticleText {...pass} as="span" className="eyebrow-small print-host" seed="neuro-eyebrow" lag={0.13} budget={700}>
+              Neuropsicólogo
+            </ParticleText>
+            <ParticleLogo {...pass} className="brand-image neuro-image print-host" seed="neuro-mark" lag={0.11} budget={1600}>
+              <Image src="/detection-home/logos/neuropsicologo-diego-acuna-transparent.png" alt="" width={549} height={474} className="object-contain" />
+            </ParticleLogo>
+            <ParticleText {...pass} as="h2" className="print-host" seed="neuro-name" lag={0.19} budget={1500}>
+              Diego Francisco<br />Acuña Llanganate
+            </ParticleText>
+          </div>
+        </article>
 
         <article className="institutional-card developer-card">
           <div className="developer-content">

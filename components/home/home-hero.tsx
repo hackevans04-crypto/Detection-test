@@ -39,6 +39,8 @@ const COPY_EXIT = {
 } as const
 const COPY_EXIT_START = COPY_EXIT.kicker[0]
 const COPY_EXIT_END = COPY_EXIT.headline[1]
+const COPY_GONE = COPY_EXIT_END + inside('INTRO', 0.24)
+const COPY_REARM = inside('INTRO', 0.12)
 
 function HeroDebug({ sceneState }: { sceneState: MutableRefObject<HeroSceneState> }) {
   const [visible, setVisible] = useState(false)
@@ -213,6 +215,7 @@ export function HomeHero() {
     const copy = root.querySelector<HTMLElement>('.hero-copy')
     let dataLive: boolean | null = null
     let copyLive: boolean | null = null
+    let copyLockedGone = false
 
     /** Keep invisible CTAs out of pointer, keyboard and assistive-tech flow. */
     const setCopyLive = (live: boolean) => {
@@ -346,6 +349,10 @@ export function HomeHero() {
           document.documentElement.style.setProperty('--hero-progress', progress.toFixed(4))
           document.documentElement.style.setProperty('--platform-progress', platformProgress.toFixed(4))
           document.documentElement.dataset.platformActive = platformProgress > 0.01 && platformProgress < 0.995 ? 'true' : 'false'
+          if (progress >= COPY_GONE) copyLockedGone = true
+          else if (progress <= COPY_REARM) copyLockedGone = false
+          const copyState = copyLockedGone ? 'gone' : progress >= COPY_EXIT_START ? 'dissolving' : 'live'
+          root.dataset.copyState = copyState
           /*
             Pesos continuos para el morph de la navegación.
 
@@ -356,35 +363,49 @@ export function HomeHero() {
             números, así que la barra deja de cambiar por interruptor.
           */
           /*
-            Plataforma ya no encoge la barra.
+            Plataforma vuelve a encoger la barra — vuelta atrás deliberada.
 
-            El capítulo 02 la dejaba en compacto —sin enlaces, sin descriptor y
-            con su propia cápsula de capítulo en el centro—, así que al pasar de
-            Inicio a Plataforma la navegación cambiaba de forma y la página se
-            sentía como dos sitios distintos. Es el mismo argumento por el que
-            hay un solo raíl de módulos: quien dice dónde estás es el raíl, y la
-            barra sólo navega.
+            Una pasada anterior la dejaba en 'full' durante todo el capítulo 02
+            razonando que el raíl de módulos ya dice dónde está el usuario. La
+            dirección de arte revisó esa decisión tras ver el recorrido
+            completo: con la barra entera flotando sobre el túnel y el núcleo,
+            Plataforma se leía como "otro sitio" en vez de como la continuación
+            inmersiva de Inicio. Se revierte: Plataforma se comporta como el
+            propio tramo REASSEMBLY→INSTITUTION de Inicio (compacto, sin
+            enlaces ni demo), y sólo se libera de vuelta a 'full' cerca del
+            final del túnel de salida, cuando la cámara ya está devolviendo el
+            control a Proceso.
 
-            El único tramo que sigue encogiéndola es el interior del cerebro,
-            donde el mundo ocupa la pantalla a propósito.
+            Antes esto sólo leía `progress` (0–1, sólo Inicio); por eso se
+            apagaba justo al terminar Inicio y se quedaba en 'full' el
+            capítulo 02 entero — `progress` nunca vuelve a bajar de 1 mientras
+            dura Plataforma, así que la fórmula no tenía forma de saberlo. Se
+            lee `masterTime` (0–2) directamente: Inicio ocupa exactamente
+            [0,1], así que las mismas fracciones de `PHASE` siguen valiendo
+            ahí, y a partir de 1 ya se puede escribir el tramo de Plataforma.
           */
-          const compact = smootherstep(PHASE.AWAKENING - 0.02, PHASE.UNLOCK, progress)
+          const heroCompact = smootherstep(PHASE.AWAKENING - 0.02, PHASE.UNLOCK, progress)
             * (1 - smootherstep(PHASE.PLATFORM_EXIT, 1, progress))
           const immersive = smootherstep(PHASE.ENTRY - 0.04, PHASE.ENTRY + 0.05, progress)
             * (1 - smootherstep(PHASE.REASSEMBLY, PHASE.INSTITUTION, progress))
+          const platformLocal = gsap.utils.clamp(0, 1, masterTime - PLATFORM_START)
+          const platformCompact = masterTime >= PLATFORM_START
+            ? smootherstep(0, 0.04, platformLocal) * (1 - smootherstep(0.9, 0.96, platformLocal))
+            : 0
+          const compact = Math.max(heroCompact, platformCompact)
           document.documentElement.style.setProperty('--nav-compact', compact.toFixed(4))
           document.documentElement.style.setProperty('--nav-immersive', immersive.toFixed(4))
           document.documentElement.dataset.heroNav =
-            progress < PHASE.AWAKENING ? 'full'
-            : progress < PHASE.ENTRY ? 'compact'
-            : progress < PHASE.REASSEMBLY ? 'immersive'
-            : progress < PHASE.PLATFORM_EXIT ? 'compact'
+            masterTime < PHASE.AWAKENING ? 'full'
+            : masterTime < PHASE.ENTRY ? 'compact'
+            : masterTime < PHASE.REASSEMBLY ? 'immersive'
+            : masterTime < PLATFORM_START + 0.94 ? 'compact'
             : 'full'
           // Al cruzar la abertura desaparece también el chrome 2D. La barra
           // vuelve al reconstruirse el cerebro, reforzando que el tramo central
           // sucede dentro del mundo y no detrás de una interfaz fija.
           document.documentElement.classList.toggle('hero-immersive', progress >= PHASE.ENTRY && progress < PHASE.REASSEMBLY)
-          setCopyLive(progress < COPY_EXIT_END)
+          setCopyLive(copyState === 'live')
           setDataLive(progress > PHASE.INSTITUTION - 0.022 && progress < PHASE.PLATFORM_EXIT + 0.004)
           signal.velocity = gsap.utils.clamp(-1, 1, (timeline.scrollTrigger?.getVelocity() ?? 0) / 2600)
         }
@@ -511,10 +532,7 @@ export function HomeHero() {
             }, COPY_EXIT.headline[0])
           .to('.hero-copy',
             {
-              y: -26,
-              z: 170,
-              rotateX: 10,
-              transformPerspective: 900,
+              y: -8,
               duration: COPY_EXIT_END - COPY_EXIT_START,
               ease: 'power2.in',
             }, COPY_EXIT_START)
@@ -532,9 +550,9 @@ export function HomeHero() {
           .to('.hero-copy',
             {
               autoAlpha: 0,
-              duration: (COPY_EXIT.headline[1] - COPY_EXIT.headline[0]) * 0.5,
+              duration: COPY_GONE - COPY_EXIT_END,
               ease: 'power2.in',
-            }, (COPY_EXIT.headline[0] + COPY_EXIT.headline[1]) * 0.5)
+            }, COPY_EXIT_END)
           .to('.hero-veil', { opacity: 0.12, duration: to('ORBIT', 'INFORM') }, PHASE.ORBIT)
 
           /*
@@ -549,20 +567,16 @@ export function HomeHero() {
             izquierda durante todo el giro. Quitadas las tarjetas, no hay borde
             cercano que agrandar ni caja que recorte.
 
-            Lo unico que hace la coreografia es levantar el bloque y encender el
-            enlace de datos. Todo lo demas —las dos marcas y cada linea de
-            texto— lo imprime `ParticleText`/`ParticleLogo` desde el disparo de
-            `LOGO_PRINT`, escalonado en el tiempo. El barrido de luz se retira
-            con las tarjetas: era el reflejo de un cristal que ya no existe.
+            Lo unico que hace la coreografia es levantar el bloque. Todo lo
+            demas —las tres marcas y cada linea de texto— lo imprime
+            `ParticleText`/`ParticleLogo` desde el disparo de `LOGO_PRINT`,
+            escalonado en el tiempo. El barrido de luz se retira con las
+            tarjetas: era el reflejo de un cristal que ya no existe. El
+            conector entre paneles se retira con el mismo criterio: con tres
+            marcas en fila, la tercera —centrada, con su propio brillo— hace
+            de enlace visual y un cable dibujado ya no aporta nada.
           */
           .fromTo('.hero-institutional', { opacity: 0 }, { opacity: 1, duration: 0.01 }, institutionLead)
-          .fromTo('.hero-institutional .institutional-connection i',
-            { scale: 0, opacity: 0 },
-            { scale: 1, opacity: 1, duration: 0.01, stagger: 0.002, ease: 'back.out(2.4)' },
-            institutionLead + 0.006)
-          .to('.hero-institutional .institutional-connection span',
-            { scaleX: 1, duration: 0.014, ease: 'power2.out' },
-            institutionLead + 0.01)
           .to('.hero-institutional',
             { opacity: 0, y: -22, z: 180, transformPerspective: 1200, duration: 0.007 }, PHASE.PLATFORM_EXIT - 0.006)
           .fromTo('.hero-portal', { opacity: 0, scale: 0.82 }, { opacity: 1, scale: 1, duration: 0.06, ease: 'power1.inOut' }, PHASE.HANDOFF - 0.01)
@@ -624,6 +638,7 @@ export function HomeHero() {
           delete (window as unknown as { __handoffSetProgress?: unknown }).__handoffSetProgress
           root.style.removeProperty('--chapter-progress')
           root.style.removeProperty('--platform-progress')
+          delete root.dataset.copyState
           document.documentElement.style.removeProperty('--hero-progress')
           document.documentElement.style.removeProperty('--platform-progress')
           document.documentElement.style.removeProperty('--nav-compact')
@@ -705,8 +720,8 @@ export function HomeHero() {
               y acompañar la interpretación profesional.
             </ParticleText>
             <div className="hero-actions">
-              <a href="#plataforma" className="hero-cta hero-cta-primary">Explorar experiencia <ArrowRight /></a>
-              <a href="#proceso" className="hero-cta hero-cta-secondary">Conocer cómo funciona <span><Play /></span></a>
+              <a href="#plataforma" className="hero-cta hero-cta-primary">Entrar a la plataforma <ArrowRight /></a>
+              <a href="#proceso" className="hero-cta hero-cta-secondary">Ver proceso <span><Play /></span></a>
             </div>
           </div>
         </div>

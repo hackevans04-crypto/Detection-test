@@ -9,7 +9,11 @@ const config = [
   {
     ignores: [
       '.next/**',
+      '**/.next/**',
       '.next-build/**',
+      '**/.next-build/**',
+      '.next-build-check/**',
+      '**/.next-build-check/**',
       '.tmp-glb-inspect/**',
       '.tmp-model-pack/**',
       'node_modules/**',

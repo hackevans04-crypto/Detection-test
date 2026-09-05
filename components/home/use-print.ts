@@ -1,9 +1,19 @@
 'use client'
 
 import { useEffect, useLayoutEffect, type MutableRefObject, type RefObject } from 'react'
-import { smoothstep, smootherstep, type HeroSceneState } from '@/lib/hero/depth'
+import { smoothstep, smootherstep } from '@/lib/hero/depth'
 import { buildPrintField, drawPrintField, seedFrom, type PrintField } from '@/lib/hero/logo-print'
 import { scrollContext } from './smooth-scroll'
+
+/**
+ * Forma mínima que este gancho necesita de un reloj de capítulo: el modo
+ * determinista (`forcedProgress`) y el reloj congelable (`time`). Antes era
+ * literalmente `HeroSceneState` — sólo Inicio podía pasar un `signal`. Con la
+ * forma estructural, cualquier capítulo con su propio reloj (Plataforma
+ * incluida, `PlatformSceneState`) puede pasar el suyo sin ningún cambio para
+ * las piezas de Inicio, que siguen satisfaciendo esta forma tal cual.
+ */
+type PrintClock = { forcedProgress: number | null; time: number }
 
 /* ------------------------------------------------------------- conductor */
 
@@ -79,9 +89,24 @@ function join(ticker: Ticker) {
   Entre esos dos valores no pasa nada, que es lo que impide que un temblor de
   trackpad encienda y apague la impresión. La marcha atrás se conserva entera:
   al subir por encima del bloque, lo impreso se despinta por el mismo camino.
+
+  La disolución usa su PROPIO par, más bajo. Medido en vivo (rueda real, no
+  progreso forzado) sobre el titular de portada — ventana de disolución de
+  sólo 0,037 de progreso: con el 62 % compartido, el interruptor no se
+  encendía hasta progress≈0,133, y desde ahí el seguidor de dos polos (ver
+  más abajo) tardaba de sobra 0,7-1,4 s reales en asentarse. A cualquier
+  velocidad de scroll normal eso son otros 0,10-0,15 de progreso de margen,
+  así que el titular seguía completo, nítido, encima del cerebro ya
+  desensamblándose — "se nota repetición, sale y a través asoman" era
+  exactamente esto: el texto no se iba una vez y para siempre, se quedaba
+  arrastrando sobre la escena siguiente. Encender antes dentro de la misma
+  ventana estrecha, aunque siga siendo una ventana estrecha, es lo que le
+  da al seguidor el margen real que necesita para terminar antes del borde.
 */
 const LATCH_ON = 0.62
 const LATCH_OFF = 0.34
+const DISSOLVE_LATCH_ON = 0.4
+const DISSOLVE_LATCH_OFF = 0.15
 
 /**
  * Seguidor de dos polos, en segundos.
@@ -93,9 +118,16 @@ const LATCH_OFF = 0.34
  */
 const PRINT_LEAD = 0.16
 const PRINT_SETTLE = 0.2
-/** La salida es más corta: no puede arrastrarse hasta el capítulo siguiente. */
-const DISSOLVE_LEAD = 0.1
-const DISSOLVE_SETTLE = 0.13
+/*
+  La salida es más corta: no puede arrastrarse hasta el capítulo siguiente.
+  Medido en vivo: con 0,1/0,13 el seguidor tardaba hasta 0,7-1,4 s reales en
+  asentarse (dos polos en cascada, más el `lag` de cada línea) — a scroll
+  normal eso es más progreso del que le sobra a una ventana de disolución
+  estrecha. Se acorta a la mitad de sobra para que el titular termine de
+  irse dentro de su propia ventana y no encima de la escena siguiente.
+*/
+const DISSOLVE_LEAD = 0.05
+const DISSOLVE_SETTLE = 0.07
 
 /** Reintento del muestreo cuando la caja todavía no estaba lista, en ms. */
 const RETRY = 260
@@ -173,8 +205,20 @@ export type PrintOptions = {
   gap?: number
   /** Polvo que sobrevive al relevo. Cero apaga el campo en reposo. */
   dust?: number
+  /**
+   * De dónde sale el progreso 0–1 que rigen `print`/`dissolve`.
+   *
+   * Por defecto `scrollContext.progress` — el de Inicio, el único capítulo
+   * que existía cuando se escribió este gancho. Ese progreso queda fijo en 1
+   * durante TODO el capítulo Plataforma (`masterTime` pasa de 1 a 2, pero
+   * `scrollContext.progress = clamp(0,1,masterTime)`), así que una pieza que
+   * necesite imprimirse dentro de Plataforma tiene que traer su PROPIA
+   * fuente de progreso — la de su propio `PlatformSceneState`, que sí se
+   * mueve de 0 a 1 dentro del capítulo.
+   */
+  progressSource?: () => number
   /** Reloj del capítulo y modo determinista. */
-  signal?: MutableRefObject<HeroSceneState>
+  signal?: MutableRefObject<PrintClock>
 }
 
 /**
@@ -205,6 +249,7 @@ export function usePrint(options: PrintOptions) {
     budget = 2400,
     gap,
     dust,
+    progressSource,
     signal,
   } = options
 
@@ -258,11 +303,13 @@ export function usePrint(options: PrintOptions) {
       hidden = true
       box.style.setProperty('--print-reveal', '0')
       box.dataset.print = 'live'
+      box.dataset.printState = 'printing'
     }
     const give = () => {
       hidden = false
       box.style.removeProperty('--print-reveal')
       delete box.dataset.print
+      delete box.dataset.printState
     }
     hide()
 
@@ -329,7 +376,7 @@ export function usePrint(options: PrintOptions) {
         return
       }
 
-      const progress = scrollContext.progress
+      const progress = progressSource ? progressSource() : scrollContext.progress
       const forced = signal?.current.forcedProgress != null
       const printTarget = print === 'load' ? (curtain ? 1 : 0) : smoothstep(print[0], print[1], progress)
       const exitTarget = smoothstep(dissolve[0], dissolve[1], progress)
@@ -337,8 +384,8 @@ export function usePrint(options: PrintOptions) {
       if (print === 'load') printOn = curtain
       else if (printTarget > LATCH_ON) printOn = true
       else if (printTarget < LATCH_OFF) printOn = false
-      if (exitTarget > LATCH_ON) dissolveOn = true
-      else if (exitTarget < LATCH_OFF) dissolveOn = false
+      if (exitTarget > DISSOLVE_LATCH_ON) dissolveOn = true
+      else if (exitTarget < DISSOLVE_LATCH_OFF) dissolveOn = false
 
       if (forced) {
         /*
@@ -383,6 +430,14 @@ export function usePrint(options: PrintOptions) {
         revealed = reveal
         box.style.setProperty('--print-reveal', reveal.toFixed(3))
       }
+      if (escaped >= 0.985) {
+        box.dataset.printState = 'dissolved'
+        box.style.setProperty('--print-reveal', '0')
+      } else if (reveal > 0.999 && field.dust === 0 && escaped <= 0) {
+        box.dataset.printState = 'settled'
+      } else {
+        box.dataset.printState = 'printing'
+      }
 
       // Un campo sin polvo no tiene nada que dibujar una vez entregado. Es la
       // razón de que el texto no cueste un solo fotograma en reposo.
@@ -415,5 +470,5 @@ export function usePrint(options: PrintOptions) {
       observer.disconnect()
       give()
     }
-  }, [angle, bleed, budget, dissolve, dust, gap, host, lag, print, sample, seed, signal, target])
+  }, [angle, bleed, budget, dissolve, dust, gap, host, lag, print, progressSource, sample, seed, signal, target])
 }

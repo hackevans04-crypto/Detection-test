@@ -27,6 +27,10 @@ pnpm-debug.log*
 # Generated local work and diagnostics
 .tmp-*/
 tmp/
+artifacts/
+.claude/
+.next-build-check/
+lint-output.txt
 *.tsbuildinfo
 *.lnk
 .next-build/

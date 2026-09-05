@@ -36,29 +36,6 @@ function useHeroNavState(): NavState {
   return state
 }
 
-/**
- * El usuario que sube quiere salir: la navegación completa vuelve sin obligarle
- * a llegar hasta arriba del todo.
- */
-function useScrollingUp() {
-  const [up, setUp] = useState(false)
-
-  useEffect(() => {
-    let previous = window.scrollY
-    const onScroll = () => {
-      const current = window.scrollY
-      if (Math.abs(current - previous) > 6) {
-        setUp(current < previous && current > 40)
-        previous = current
-      }
-    }
-    window.addEventListener('scroll', onScroll, { passive: true })
-    return () => window.removeEventListener('scroll', onScroll)
-  }, [])
-
-  return up
-}
-
 export function Navbar() {
   const [open, setOpen] = useState(false)
   /*
@@ -69,11 +46,19 @@ export function Navbar() {
     todo el capítulo 02, contradiciendo al raíl en pantalla.
   */
   const active = sectionIndex[useActiveModule()].id
-  const chapterState = useHeroNavState()
-  const returning = useScrollingUp()
-  // Volver a subir devuelve la barra completa, pero nunca dentro del cerebro:
-  // ahí el mundo manda y la navegación se queda en HUD.
-  const state: NavState = returning && chapterState === 'compact' ? 'full' : chapterState
+  /*
+    `dataset.heroNav` (escrito por `home-hero.tsx::syncChapter`, el único
+    sitio donde el progreso visible cambia de valor) es ahora la única fuente
+    de verdad. Antes un `useScrollingUp` propio devolvía la barra completa en
+    cuanto el usuario subía un poco la rueda, pensado para el tramo corto
+    REASSEMBLY→INSTITUTION de Inicio. Con Plataforma compacta durante todo el
+    capítulo (portal, núcleo, las cuatro estaciones), ese mismo gesto —subir
+    para releer una estación— devolvía la barra completa sobre la escena
+    inmersiva, justo lo que se pidió ocultar. Se retira: subir o bajar ya
+    cambia `masterTime`, y `dataset.heroNav` ya sabe qué mostrar en cualquier
+    dirección.
+  */
+  const state: NavState = useHeroNavState()
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
@@ -137,7 +122,7 @@ export function Navbar() {
             <span className="nav-account-label">Iniciar sesión</span>
           </CtaLink>
           <CtaLink href="#recursos" className="nav-demo hidden h-11 px-5 md:inline-flex">
-            Demo personalizada
+            Solicitar acceso
             <ArrowRight className="size-4" />
           </CtaLink>
           <button

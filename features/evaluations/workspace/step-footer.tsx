@@ -2,9 +2,10 @@
 
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { AlertCircle, ArrowLeft, ArrowRight, Check, Loader2, Save } from 'lucide-react'
-import { stepIds, type StepId } from '@/lib/evaluations/model'
+import { AlertCircle, ArrowLeft, ArrowRight, Check, Loader2 } from 'lucide-react'
+import { stepIds, stepLabels, type StepId } from '@/lib/evaluations/model'
 import { useEvaluation, type SaveState } from '@/features/evaluations/workspace/evaluation-provider'
+import { canNavigateToStep } from '@/lib/evaluations/evaluation-progress'
 
 function relativeSeconds(iso: string | null) {
   if (!iso) return null
@@ -45,7 +46,7 @@ export function AutosaveIndicator({ state, lastSavedAt, error }: { state: SaveSt
   if (state === 'dirty') {
     return (
       <span className="dt-autosave" role="status">
-        <Save aria-hidden="true" />
+        <Check aria-hidden="true" />
         Cambios sin guardar
       </span>
     )
@@ -75,9 +76,10 @@ function formatSeconds(seconds: number) {
  */
 export function StepFooter({
   step,
-  nextLabel = 'Guardar y continuar',
+  nextLabel,
   onBeforeNext,
   disableNext,
+  disabledNextReason,
   extraActions,
 }: {
   step: StepId
@@ -85,18 +87,27 @@ export function StepFooter({
   /** Devolver `false` cancela la navegación (validación de la etapa). */
   onBeforeNext?: () => boolean
   disableNext?: boolean
+  disabledNextReason?: string
   extraActions?: React.ReactNode
 }) {
   const router = useRouter()
   const { evaluation, saveNow, saveState, saveError, lastSavedAt, goToStep } = useEvaluation()
-  const [busy, setBusy] = useState<'save' | 'next' | null>(null)
+  const [busy, setBusy] = useState<'next' | null>(null)
 
   const index = stepIds.indexOf(step)
   const previous = index > 0 ? stepIds[index - 1] : null
   const next = index < stepIds.length - 1 ? stepIds[index + 1] : null
+  const resolvedNextLabel = nextLabel ?? (next ? `Siguiente: ${stepLabels[next]}` : 'Siguiente')
 
-  const navigate = async (target: StepId) => {
+  const navigate = async (target: StepId, enforceProgress = false) => {
     setBusy('next')
+    const saved = await saveNow()
+    const checkpoint = saved ?? evaluation
+    if (enforceProgress && !canNavigateToStep(checkpoint, target)) {
+      setBusy(null)
+      window.alert('Guarda o completa el paso anterior antes de continuar.')
+      return
+    }
     goToStep(target)
     await saveNow()
     setBusy(null)
@@ -124,30 +135,19 @@ export function StepFooter({
 
       <div className="dt-step-footer-actions">
         {extraActions}
-        <button
-          type="button"
-          className="dt-btn dt-btn-secondary"
-          onClick={async () => {
-            setBusy('save')
-            await saveNow()
-            setBusy(null)
-          }}
-          disabled={busy !== null}
-        >
-          {busy === 'save' ? <Loader2 className="dt-spin" aria-hidden="true" /> : <Save aria-hidden="true" />}
-          Guardar
-        </button>
         {next ? (
           <button
             type="button"
             className="dt-btn dt-btn-primary"
             disabled={disableNext || busy !== null}
+            title={disableNext ? disabledNextReason : undefined}
             onClick={() => {
               if (onBeforeNext && onBeforeNext() === false) return
-              void navigate(next)
+              void navigate(next, true)
             }}
           >
-            {nextLabel}
+            {busy === 'next' ? <Loader2 className="dt-spin" aria-hidden="true" /> : null}
+            {resolvedNextLabel}
             <ArrowRight aria-hidden="true" />
           </button>
         ) : null}

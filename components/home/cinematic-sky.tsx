@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, type MutableRefObject } from 'react'
 import * as THREE from 'three'
 import { PHASE, bell, smoothstep, type HeroSceneState, at, inside, until } from '@/lib/hero/depth'
 import { halfHeightAt, type Framing } from '@/lib/hero/stage'
+import { starGlowFragmentShader } from '@/lib/three/star-field'
 
 type SceneStateRef = MutableRefObject<HeroSceneState>
 type Quality = 'high' | 'medium' | 'low'
@@ -163,30 +164,6 @@ const starVertexShader = /* glsl */ `
     vFlare = smoothstep(3.4, 6.4, aSize);
     gl_PointSize = aSize * uPixelRatio * (112.0 / max(-viewPosition.z, 1.0)) * (0.76 + vPulse * 0.46);
     gl_Position = projectionMatrix * viewPosition;
-  }
-`
-
-const starFragmentShader = /* glsl */ `
-  varying float vPulse;
-  varying vec3 vColor;
-  varying float vFlare;
-
-  void main() {
-    vec2 point = gl_PointCoord - 0.5;
-    float distance = length(point) * 2.0;
-    if (distance > 1.0) discard;
-
-    // El perfil del original: núcleo blanco diminuto, halo de color que cae muy
-    // rápido y una cola larga y oscura que sólo aporta atmósfera.
-    vec3 tint = mix(vec3(1.0), vColor, smoothstep(0.02, 0.22, distance));
-    tint = mix(tint, vColor * 0.16, smoothstep(0.22, 0.54, distance));
-    float glow = pow(1.0 - distance, 2.4);
-
-    float horizontal = exp(-abs(point.y) * 44.0) * smoothstep(0.5, 0.05, abs(point.x));
-    float vertical = exp(-abs(point.x) * 44.0) * smoothstep(0.5, 0.05, abs(point.y));
-    float alpha = (glow + (horizontal + vertical) * 0.3 * vFlare) * vPulse;
-    if (alpha < 0.008) discard;
-    gl_FragColor = vec4(tint * (0.68 + vPulse * 0.82), alpha);
   }
 `
 
@@ -427,9 +404,10 @@ function LivingStars({ sceneState, framing, quality }: { sceneState: SceneStateR
       uPixelRatio: { value: 1 },
       uVisibility: { value: 1 },
       uSpread: { value: 30 },
+      uOpacity: { value: 1 },
     },
     vertexShader: starVertexShader,
-    fragmentShader: starFragmentShader,
+    fragmentShader: starGlowFragmentShader,
     transparent: true,
     depthWrite: false,
     depthTest: true,

@@ -124,12 +124,13 @@ describe('informe', () => {
   it('produce los diez apartados en orden', () => {
     const document = buildReport(evaluation)
     expect(document.sections.map((section) => section.number)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
-    expect(document.sections[5].title).toBe('Interpretación')
+    expect(document.sections[5].title).toBe('Resultados estadísticos')
+    expect(document.sections[6].title).toBe('Interpretación psicopedagógica')
   })
 
   it('traslada literalmente lo que escribió el profesional', () => {
     const document = buildReport(evaluation)
-    const interpretation = document.sections[5].blocks[0]
+    const interpretation = document.sections[6].blocks[0]
     expect(interpretation).toEqual({ kind: 'paragraph', text: 'Interpretación redactada por el profesional.' })
   })
 
@@ -196,16 +197,16 @@ describe('informe', () => {
     const blob = generatePsychopedagogicalReport(buildReport(evaluation))
     const text = Buffer.from(await blob.arrayBuffer()).toString('latin1')
     expect(text).toContain('/Encoding /WinAnsiEncoding')
-    expect(text).toContain('INTERPRETACIÓN')
+    expect(text).toContain('INTERPRETACIÓN PSICOPEDAGÓGICA')
   })
 
-  it('imprime la viñeta como viñeta y no como interrogación', async () => {
-    // WinAnsi coloca el punto de lista en 0x95, fuera de Latin-1: sin la tabla
-    // de equivalencias cada conclusión salía encabezada por un «?».
+  it('imprime las listas con guion ASCII y no como interrogación', async () => {
+    // El PDF evita viñetas dependientes de WinAnsi para que el informe se lea
+    // igual en visores distintos y nunca aparezca encabezado por un "?".
     const blob = generatePsychopedagogicalReport(buildReport(evaluation))
     const text = Buffer.from(await blob.arrayBuffer()).toString('latin1')
 
-    expect(text).toContain(String.fromCharCode(0x95) + " Conclusiones redactadas por el profesional.")
+    expect(text).toContain("- Conclusiones redactadas por el profesional.")
     expect(text).not.toContain("? Conclusiones redactadas")
   })
 

@@ -14,7 +14,8 @@ import { FlowStepper, flowLabels } from '@/features/evaluations/workspace/flow-s
 import { useEvaluation } from '@/features/evaluations/workspace/evaluation-provider'
 import { stepIds, stepLabels, type StepId } from '@/lib/evaluations/model'
 import { ageAt, formatAgeShort, orDash } from '@/lib/evaluations/format'
-import { evaluationProgress, stepStatus } from '@/lib/evaluations/progress'
+import { displayAcademicLevel } from '@/lib/evaluations/context-service'
+import { getEvaluationProgress } from '@/lib/evaluations/evaluation-progress'
 
 /**
  * Marco del expediente abierto.
@@ -29,26 +30,42 @@ export function EvaluationWorkspaceLayout({ children }: { children: ReactNode })
   const segment = pathname.split('/')[3] ?? 'datos-iniciales'
   const current = (stepIds.includes(segment as StepId) ? segment : 'datos-iniciales') as StepId
   const name = orDash(evaluation.initialData.person.fullName, 'Evaluación sin nombre')
-  const progress = evaluationProgress(evaluation)
+  const visibleCurrent = stepIds.indexOf(current) + 2
+  const visibleTotal = flowLabels.length
+  const visiblePercent = Math.round((visibleCurrent / visibleTotal) * 100)
 
   const identity = [
     formatAgeShort(ageAt(evaluation.initialData.person.birthDate, evaluation.initialData.evaluationDate)),
-    evaluation.initialData.person.grade,
+    displayAcademicLevel(evaluation.initialData.person.grade),
     evaluation.initialData.person.sex,
   ]
     .filter(Boolean)
-    .join(' · ')
+    .join(' - ')
 
   // La etapa 0 de la barra es la selección del evaluado: en un expediente que
   // ya existe siempre está hecha, porque sin ella no habría expediente.
+  //
+  // Sólo la ruta abierta se marca en curso. `stepStatus` devuelve IN_PROGRESS
+  // para cualquier etapa empezada y a medias, y eso pintaba dos etapas actuales
+  // a la vez: la que se está editando y otra anterior sin terminar. En la barra
+  // una etapa está hecha o está pendiente; dónde estoy lo dice una sola.
+  const progress = getEvaluationProgress(evaluation, current)
   const steps = [
     { key: 'seleccion', label: flowLabels[0], status: 'COMPLETED' as const },
-    ...stepIds.map((id, index) => ({
-      key: id,
-      label: flowLabels[index + 1],
-      status: id === current ? ('IN_PROGRESS' as const) : stepStatus(evaluation, id),
-      href: `/evaluaciones/${evaluation.id}/${id}`,
-    })),
+    ...stepIds.map((id, index) => {
+      const state = progress[index + 1]
+      return {
+        key: id,
+        label: flowLabels[index + 1],
+        status:
+          state.status === 'ACTIVE'
+            ? ('IN_PROGRESS' as const)
+            : state.status === 'AVAILABLE'
+              ? ('PENDING' as const)
+              : state.status,
+        href: `/evaluaciones/${evaluation.id}/${id}`,
+      }
+    }),
   ]
 
   return (
@@ -64,7 +81,7 @@ export function EvaluationWorkspaceLayout({ children }: { children: ReactNode })
           </nav>
         }
         title={name}
-        description={`${evaluation.code} · ${stepLabels[current]}`}
+        description={`${evaluation.code} - ${stepLabels[current]}`}
       />
 
       <div className="dt-page">
@@ -76,19 +93,19 @@ export function EvaluationWorkspaceLayout({ children }: { children: ReactNode })
                 <strong>{name}</strong>
                 <small>
                   {evaluation.code}
-                  {identity ? ` · ${identity}` : ''}
+                  {identity ? ` - ${identity}` : ''}
                 </small>
               </div>
             </div>
             <EvaluationStatusBadge status={evaluation.status} />
             <div className="dt-flowbar-progress">
               <EvaluationProgressBar
-                percent={progress.percent}
+                percent={visiblePercent}
                 label="Progreso general de la evaluación"
-                tone={progress.percent === 100 ? 'success' : undefined}
+                tone={visiblePercent === 100 ? 'success' : undefined}
               />
               <span className="dt-flowbar-percent">
-                {progress.percent}% · {progress.completedSteps}/{progress.totalSteps}
+                {visiblePercent}% - {visibleCurrent}/{visibleTotal}
               </span>
             </div>
           </div>

@@ -40,7 +40,7 @@ export const REPORT_BRANDING = {
   faculty: 'Unidad de Apoyo a la Inclusión',
   system: 'Detection-test · Evaluación · Análisis · Inclusión',
   developer: 'Olbrox Tech',
-  developerNote: 'Desarrollo del sistema',
+  developerNote: 'Desarrollo tecnológico',
 }
 
 type Font = 'regular' | 'bold'
@@ -140,7 +140,10 @@ class PdfWriter {
   private current: string[] = []
   private y = MARGIN_TOP
 
-  constructor(private readonly footerLeft: string) {}
+  constructor(
+    private readonly footerLeft: string,
+    private readonly footerDeveloper?: ReportImage,
+  ) {}
 
   start() {
     this.current = []
@@ -268,59 +271,55 @@ class PdfWriter {
 
     return this.pages.map((content, index) => {
       const left = escapePdfText(this.footerLeft)
+      const developer = escapePdfText(`Desarrollado por ${REPORT_BRANDING.developer}`)
       const right = escapePdfText(`Página ${index + 1} de ${total}`)
+      const developerLogo = this.footerDeveloper ? fit(this.footerDeveloper, 88, 22) : null
+      const developerX =
+        MARGIN_X + CONTENT_WIDTH / 2 - (developerLogo ? developerLogo.width / 2 : widthOf(developer, 7, 'regular') / 2)
       return [
         ...content,
-        `${RULE} RG 0.5 w ${MARGIN_X} 56 m ${PAGE_WIDTH - MARGIN_X} 56 l S`,
-        `BT /F1 7 Tf ${MUTED} rg ${MARGIN_X} 44 Td (${left}) Tj ET`,
-        `BT /F1 7 Tf ${MUTED} rg ${PAGE_WIDTH - MARGIN_X - widthOf(right, 7, 'regular')} 44 Td (${right}) Tj ET`,
+        `${RULE} RG 0.5 w ${MARGIN_X} 62 m ${PAGE_WIDTH - MARGIN_X} 62 l S`,
+        `BT /F1 7 Tf ${MUTED} rg ${MARGIN_X} 48 Td (${left}) Tj ET`,
+        developerLogo
+          ? `q ${developerLogo.width.toFixed(2)} 0 0 ${developerLogo.height.toFixed(2)} ${developerX.toFixed(2)} ${(39 + (22 - developerLogo.height) / 2).toFixed(2)} cm /ImD Do Q`
+          : `BT /F1 7 Tf ${MUTED} rg ${developerX.toFixed(2)} 48 Td (${developer}) Tj ET`,
+        `BT /F1 7 Tf ${MUTED} rg ${PAGE_WIDTH - MARGIN_X - widthOf(right, 7, 'regular')} 48 Td (${right}) Tj ET`,
       ].join('\n')
     })
   }
 }
 
-/** Membrete institucional: universidad a la izquierda, sistema a la derecha. */
 function renderLetterhead(writer: PdfWriter, assets: ReportAssets) {
   const top = MARGIN_TOP
-  const boxHeight = 46
-
+  const crestBox = { x: MARGIN_X + 34, y: top - 64, width: 54, height: 64 }
   if (assets.university) {
-    const size = fit(assets.university, 46, boxHeight)
-    writer.image({ name: 'ImU', x: MARGIN_X, y: top - size.height, width: size.width, height: size.height })
-  }
-  if (assets.system) {
-    const size = fit(assets.system, 108, boxHeight - 6)
+    const size = fit(assets.university, crestBox.width, crestBox.height)
     writer.image({
-      name: 'ImS',
-      x: PAGE_WIDTH - MARGIN_X - size.width,
-      y: top - boxHeight + (boxHeight - size.height) / 2,
+      name: 'ImU',
+      x: crestBox.x + (crestBox.width - size.width) / 2,
+      y: crestBox.y + (crestBox.height - size.height) / 2,
       width: size.width,
       height: size.height,
     })
   }
 
-  writer.space(8)
-  writer.text(REPORT_BRANDING.university, {
-    size: 9,
-    font: 'bold',
-    color: INK,
-    indent: assets.university ? 58 : 0,
-    maxWidth: CONTENT_WIDTH - 180,
-  })
-  writer.text(REPORT_BRANDING.faculty, {
-    size: 7.5,
-    color: MUTED,
-    indent: assets.university ? 58 : 0,
-    maxWidth: CONTENT_WIDTH - 180,
-  })
-  writer.text(REPORT_BRANDING.system, {
-    size: 7.5,
-    color: PRIMARY,
-    indent: assets.university ? 58 : 0,
-    maxWidth: CONTENT_WIDTH - 180,
-  })
+  const textX = crestBox.x + crestBox.width + 14
+  writer.raw(`BT /F2 6.2 Tf ${PRIMARY} rg ${textX} ${top - 16} Td (${escapePdfText('INSTITUCIÓN ACADÉMICA')}) Tj ET`)
+  writer.raw(`BT /F2 13 Tf ${INK} rg ${textX} ${top - 34} Td (${escapePdfText(REPORT_BRANDING.university)}) Tj ET`)
+  writer.raw(`BT /F2 8 Tf ${MUTED} rg ${textX} ${top - 51} Td (${escapePdfText(REPORT_BRANDING.faculty)}) Tj ET`)
 
-  writer.space(12)
+  const systemWidth = 230
+  const systemX = MARGIN_X + (CONTENT_WIDTH - systemWidth) / 2
+  const systemY = top - 118
+  if (assets.system) {
+    const size = fit(assets.system, systemWidth, 44)
+    writer.image({ name: 'ImS', x: systemX + (systemWidth - size.width) / 2, y: systemY, width: size.width, height: size.height })
+  }
+  const caption = 'SISTEMA DE EVALUACIÓN'
+  const captionWidth = widthOf(caption, 6.2, 'bold')
+  writer.raw(`BT /F2 6.2 Tf ${MUTED} rg ${(systemX + (systemWidth - captionWidth) / 2).toFixed(2)} ${(systemY - 13).toFixed(2)} Td (${escapePdfText(caption)}) Tj ET`)
+
+  writer.space(144)
   writer.rule(PRIMARY, 1.4)
   writer.space(10)
 }
@@ -365,10 +364,82 @@ function renderSummary(writer: PdfWriter, document: ReportDocument) {
   writer.space(6)
 }
 
-function renderNote(writer: PdfWriter, title: string, text: string) {
+/**
+ * Fila de tarjetas KPI — composición ejecutiva compacta. Los valores llegan
+ * ya formateados desde `EvaluationAnalyticsSummary`; esta función sólo
+ * dibuja, nunca recalcula.
+ */
+function renderKpiGrid(
+  writer: PdfWriter,
+  items: Array<{ label: string; value: string; detail?: string; tone?: 'primary' | 'success' | 'warning' | 'danger' | 'neutral' }>,
+) {
+  if (items.length === 0) return
+  const columns = Math.min(4, items.length)
+  const gap = 8
+  const cellWidth = (CONTENT_WIDTH - gap * (columns - 1)) / columns
+  const cellHeight = items.some((item) => item.detail) ? 62 : 48
+  const rows = Math.ceil(items.length / columns)
+  writer.keepTogether(rows * cellHeight + (rows - 1) * gap + 6)
+
+  for (let row = 0; row < rows; row += 1) {
+    const rowTop = writer.cursor
+    for (let col = 0; col < columns; col += 1) {
+      const item = items[row * columns + col]
+      if (!item) continue
+      const x = MARGIN_X + col * (cellWidth + gap)
+      const y = rowTop - cellHeight
+      const tone = pdfToneColor(item.tone)
+      writer.raw(`1 1 1 rg ${x.toFixed(2)} ${y.toFixed(2)} ${cellWidth.toFixed(2)} ${cellHeight} re f`)
+      writer.raw(`${RULE} RG ${x.toFixed(2)} ${y.toFixed(2)} ${cellWidth.toFixed(2)} ${cellHeight} re S`)
+      writer.raw(`${tone} rg ${x.toFixed(2)} ${y.toFixed(2)} 3 ${cellHeight} re f`)
+      const label = wrap(item.label.toUpperCase(), 6.4, 'bold', cellWidth - 16)[0] ?? item.label.toUpperCase()
+      writer.raw(`BT /F2 6.4 Tf ${MUTED} rg ${(x + 8).toFixed(2)} ${(rowTop - 13).toFixed(2)} Td (${escapePdfText(label)}) Tj ET`)
+      const value = wrap(item.value, 12.5, 'bold', cellWidth - 16)[0] ?? item.value
+      writer.raw(`BT /F2 12.5 Tf ${INK} rg ${(x + 8).toFixed(2)} ${(rowTop - 31).toFixed(2)} Td (${escapePdfText(value)}) Tj ET`)
+      if (item.detail) {
+        const detail = wrap(item.detail, 6.4, 'regular', cellWidth - 18)[0] ?? item.detail
+        writer.raw(`BT /F1 6.4 Tf ${MUTED} rg ${(x + 8).toFixed(2)} ${(y + 18).toFixed(2)} Td (${escapePdfText(detail)}) Tj ET`)
+      }
+      const progress = kpiProgressFromValue(item.value)
+      if (progress !== null) {
+        const trackWidth = cellWidth - 18
+        writer.raw(`${RULE} rg ${(x + 8).toFixed(2)} ${(y + 8).toFixed(2)} ${trackWidth.toFixed(2)} 4 re f`)
+        writer.raw(`${tone} rg ${(x + 8).toFixed(2)} ${(y + 8).toFixed(2)} ${(trackWidth * progress).toFixed(2)} 4 re f`)
+      }
+    }
+    writer.space(cellHeight)
+    if (row < rows - 1) writer.space(gap)
+  }
+  writer.space(6)
+}
+
+function pdfToneColor(tone: 'primary' | 'success' | 'warning' | 'danger' | 'neutral' | undefined) {
+  if (tone === 'success') return '0.086 0.639 0.290'
+  if (tone === 'warning') return '0.961 0.620 0.043'
+  if (tone === 'danger') return '0.863 0.149 0.149'
+  if (tone === 'neutral') return '0.580 0.639 0.722'
+  return PRIMARY
+}
+
+function kpiProgressFromValue(value: string) {
+  const percent = value.match(/^(\d+(?:\.\d+)?)%$/)
+  if (percent) return Math.max(0, Math.min(1, Number(percent[1]) / 100))
+  const ratio = value.match(/^(\d+(?:\.\d+)?)\/(\d+(?:\.\d+)?)$/)
+  if (ratio) {
+    const numerator = Number(ratio[1])
+    const denominator = Number(ratio[2])
+    if (denominator > 0) return Math.max(0, Math.min(1, numerator / denominator))
+  }
+  return null
+}
+
+function renderNote(writer: PdfWriter, title: string, text: string, items?: string[]) {
   const titleHeight = 12
-  const textLines = wrap(text, 8.8, 'regular', CONTENT_WIDTH - 24)
-  const height = titleHeight + textLines.length * 12 + 14
+  const bodyLines =
+    items && items.length > 0
+      ? items.flatMap((item) => wrap(`- ${item}`, 8.8, 'regular', CONTENT_WIDTH - 24))
+      : wrap(text, 8.8, 'regular', CONTENT_WIDTH - 24)
+  const height = titleHeight + bodyLines.length * 12 + 14
   writer.keepTogether(height)
 
   const start = writer.cursor
@@ -376,41 +447,341 @@ function renderNote(writer: PdfWriter, title: string, text: string) {
   writer.raw(`${PRIMARY} rg ${MARGIN_X} ${start - height} 3 ${height} re f`)
   writer.space(8)
   writer.text(title.toUpperCase(), { size: 6.8, font: 'bold', color: PRIMARY, indent: 12, maxWidth: CONTENT_WIDTH - 24 })
-  writer.text(text, { size: 8.8, leading: 12, color: INK_SOFT, indent: 12, maxWidth: CONTENT_WIDTH - 24 })
+  if (items && items.length > 0) {
+    for (const item of items) {
+      writer.text(`- ${item}`, { size: 8.8, leading: 12, color: INK_SOFT, indent: 12, maxWidth: CONTENT_WIDTH - 24 })
+    }
+  } else if (text) {
+    writer.text(text, { size: 8.8, leading: 12, color: INK_SOFT, indent: 12, maxWidth: CONTENT_WIDTH - 24 })
+  }
 
   const consumed = start - writer.cursor
   writer.space(Math.max(6, height - consumed + 4))
 }
 
-/** Créditos del cierre: universidad y quien desarrolla el sistema. */
-function renderCredits(writer: PdfWriter, assets: ReportAssets) {
-  // Cabe al pie de la última página de contenido; reservar de más lo mandaba
-  // solo a una hoja en blanco.
-  writer.keepTogether(54)
-  writer.space(10)
-  writer.rule()
-  writer.space(4)
+function renderChart(
+  writer: PdfWriter,
+  title: string,
+  unit: string,
+  source: string,
+  values: Array<{ label: string; value: number; caption?: string }>,
+  options: { type?: 'bar' | 'percentile' | 'donut' | 'flow' | 'gauge' | 'matrix' | 'stacked'; maxValue?: number; insight?: string } = {},
+) {
+  if (values.length === 0) return
 
-  writer.text(REPORT_BRANDING.developerNote.toUpperCase(), { size: 6.5, font: 'bold', color: MUTED })
-  writer.space(2)
-
-  const textTop = writer.cursor
-  if (assets.developer) {
-    const size = fit(assets.developer, 96, 26)
-    writer.image({ name: 'ImD', x: MARGIN_X, y: textTop - size.height, width: size.width, height: size.height })
-    writer.space(size.height + 6)
-  } else {
-    writer.text(REPORT_BRANDING.developer, { size: 10, font: 'bold', color: INK })
+  if (options.type === 'donut') {
+    renderDonutChart(writer, title, unit, source, values, options.insight)
+    return
+  }
+  if (options.type === 'flow') {
+    renderFlowChart(writer, title, unit, source, values, options.insight)
+    return
+  }
+  if (options.type === 'gauge') {
+    renderGaugeChart(writer, title, unit, source, values, options.insight)
+    return
+  }
+  if (options.type === 'matrix') {
+    renderMatrixChart(writer, title, unit, source, values, options.insight)
+    return
+  }
+  if (options.type === 'stacked') {
+    renderStackedChart(writer, title, unit, source, values, options.insight)
+    return
+  }
+  if (options.type === 'percentile') {
+    renderPercentileChart(writer, title, unit, source, values, options.insight)
+    return
   }
 
-  writer.text(
-    `${REPORT_BRANDING.developer} para la ${REPORT_BRANDING.universityProper}. Documento generado por Detection-test.`,
-    { size: 7.5, color: MUTED },
-  )
+  const max = options.maxValue ?? Math.max(...values.map((item) => item.value), 1)
+  const rowHeight = 15
+  const shell = chartShell(writer, title, unit, source, options.insight, 52 + values.length * rowHeight)
+
+  for (const item of values) {
+    const label = wrap(item.label, 7.2, 'regular', 118)[0] ?? item.label
+    const barWidth = Math.max(8, (item.value / max) * (shell.width - 180))
+    const y = writer.cursor - 9
+    writer.raw(`BT /F1 7.2 Tf ${INK_SOFT} rg ${shell.x} ${y} Td (${escapePdfText(label)}) Tj ET`)
+    writer.raw(`${RULE} rg ${shell.x + 126} ${y - 1} ${(shell.width - 180).toFixed(2)} 7 re f`)
+    writer.raw(`${PRIMARY} rg ${shell.x + 126} ${y - 1} ${barWidth.toFixed(2)} 7 re f`)
+    writer.raw(`BT /F2 7.2 Tf ${INK} rg ${shell.x + shell.width - 45} ${y} Td (${escapePdfText(String(item.caption ?? item.value))}) Tj ET`)
+    writer.space(rowHeight)
+  }
+  closeChartShell(writer, shell)
 }
 
+function chartShell(writer: PdfWriter, title: string, unit: string, source: string, insight: string | undefined, height: number) {
+  const insightLines = insight ? wrap(insight, 7, 'regular', CONTENT_WIDTH - 34).slice(0, 2) : []
+  const fullHeight = height + insightLines.length * 10
+  writer.keepTogether(fullHeight + 10)
+  const top = writer.cursor
+  const y = top - fullHeight
+  writer.raw(`1 1 1 rg ${MARGIN_X} ${y.toFixed(2)} ${CONTENT_WIDTH} ${fullHeight.toFixed(2)} re f`)
+  writer.raw(`${RULE} RG ${MARGIN_X} ${y.toFixed(2)} ${CONTENT_WIDTH} ${fullHeight.toFixed(2)} re S`)
+  writer.raw(`${PRIMARY} rg ${MARGIN_X} ${y.toFixed(2)} 3 ${fullHeight.toFixed(2)} re f`)
+  writer.raw(`BT /F2 8.8 Tf ${INK} rg ${MARGIN_X + 14} ${(top - 16).toFixed(2)} Td (${escapePdfText(title)}) Tj ET`)
+  writer.raw(`BT /F1 7 Tf ${MUTED} rg ${MARGIN_X + 14} ${(top - 28).toFixed(2)} Td (${escapePdfText(`${unit} - Fuente: ${source}`)}) Tj ET`)
+  insightLines.forEach((line, index) => {
+    writer.raw(`BT /F1 7 Tf ${INK_SOFT} rg ${MARGIN_X + 14} ${(top - 40 - index * 10).toFixed(2)} Td (${escapePdfText(line)}) Tj ET`)
+  })
+  writer.space(42 + insightLines.length * 10)
+  return { x: MARGIN_X + 14, width: CONTENT_WIDTH - 28, top, height: fullHeight }
+}
+
+function closeChartShell(writer: PdfWriter, shell: { top: number; height: number }) {
+  const consumed = shell.top - writer.cursor
+  writer.space(Math.max(8, shell.height - consumed + 8))
+}
+
+function renderFlowChart(
+  writer: PdfWriter,
+  title: string,
+  unit: string,
+  source: string,
+  values: Array<{ label: string; value: number; caption?: string }>,
+  insight?: string,
+) {
+  const gap = 8
+  const cols = Math.min(values.length, 5)
+  const shell = chartShell(writer, title, unit, source, insight, 106)
+  const boxWidth = (shell.width - gap * (cols - 1)) / cols
+  const y = writer.cursor - 54
+  values.slice(0, cols).forEach((item, index) => {
+    const x = shell.x + index * (boxWidth + gap)
+    writer.raw(`${BAND} rg ${x.toFixed(2)} ${y.toFixed(2)} ${boxWidth.toFixed(2)} 50 re f`)
+    writer.raw(`${RULE} RG ${x.toFixed(2)} ${y.toFixed(2)} ${boxWidth.toFixed(2)} 50 re S`)
+    writer.raw(`BT /F2 6.4 Tf ${PRIMARY} rg ${(x + 8).toFixed(2)} ${(y + 36).toFixed(2)} Td (${escapePdfText(String(index + 1).padStart(2, '0'))}) Tj ET`)
+    writer.raw(`BT /F2 15 Tf ${INK} rg ${(x + 8).toFixed(2)} ${(y + 20).toFixed(2)} Td (${escapePdfText(String(item.caption ?? item.value))}) Tj ET`)
+    writer.raw(`BT /F1 7 Tf ${INK_SOFT} rg ${(x + 8).toFixed(2)} ${(y + 8).toFixed(2)} Td (${escapePdfText(wrap(item.label, 7, 'regular', boxWidth - 16)[0] ?? item.label)}) Tj ET`)
+    if (index < cols - 1) {
+      writer.raw(`${PRIMARY} RG ${(x + boxWidth + 1).toFixed(2)} ${(y + 25).toFixed(2)} m ${(x + boxWidth + gap - 1).toFixed(2)} ${(y + 25).toFixed(2)} l S`)
+    }
+  })
+  writer.space(62)
+  closeChartShell(writer, shell)
+}
+
+function renderGaugeChart(
+  writer: PdfWriter,
+  title: string,
+  unit: string,
+  source: string,
+  values: Array<{ label: string; value: number; caption?: string }>,
+  insight?: string,
+) {
+  const item = values[0]
+  if (!item) return
+  const value = Math.max(0, Math.min(100, item.value))
+  const shell = chartShell(writer, title, unit, source, insight, 94)
+  const trackX = shell.x + 12
+  const trackY = writer.cursor - 28
+  const trackWidth = shell.width - 24
+  writer.raw(`${RULE} rg ${trackX.toFixed(2)} ${trackY.toFixed(2)} ${trackWidth.toFixed(2)} 16 re f`)
+  writer.raw(`0.86 0.92 1 rg ${trackX.toFixed(2)} ${trackY.toFixed(2)} ${(trackWidth * 0.4).toFixed(2)} 16 re f`)
+  writer.raw(`0.82 0.95 0.94 rg ${(trackX + trackWidth * 0.4).toFixed(2)} ${trackY.toFixed(2)} ${(trackWidth * 0.35).toFixed(2)} 16 re f`)
+  writer.raw(`0.86 0.97 0.90 rg ${(trackX + trackWidth * 0.75).toFixed(2)} ${trackY.toFixed(2)} ${(trackWidth * 0.25).toFixed(2)} 16 re f`)
+  const markerX = trackX + (trackWidth * value) / 100
+  writer.raw(`${PRIMARY} rg ${(markerX - 2).toFixed(2)} ${(trackY - 4).toFixed(2)} 4 24 re f`)
+  writer.raw(`BT /F2 18 Tf ${INK} rg ${shell.x + 12} ${(trackY - 22).toFixed(2)} Td (${escapePdfText(String(item.caption ?? item.value))}) Tj ET`)
+  writer.raw(`BT /F1 7.4 Tf ${INK_SOFT} rg ${shell.x + 80} ${(trackY - 18).toFixed(2)} Td (${escapePdfText(item.label)}) Tj ET`)
+  writer.raw(`BT /F1 6.6 Tf ${MUTED} rg ${trackX.toFixed(2)} ${(trackY - 38).toFixed(2)} Td (0) Tj ET`)
+  writer.raw(`BT /F1 6.6 Tf ${MUTED} rg ${(trackX + trackWidth / 2 - 4).toFixed(2)} ${(trackY - 38).toFixed(2)} Td (50) Tj ET`)
+  writer.raw(`BT /F1 6.6 Tf ${MUTED} rg ${(trackX + trackWidth - 12).toFixed(2)} ${(trackY - 38).toFixed(2)} Td (100) Tj ET`)
+  writer.space(70)
+  closeChartShell(writer, shell)
+}
+
+function renderMatrixChart(
+  writer: PdfWriter,
+  title: string,
+  unit: string,
+  source: string,
+  values: Array<{ label: string; value: number; caption?: string }>,
+  insight?: string,
+) {
+  const rows = Math.ceil(values.length / 2)
+  const shell = chartShell(writer, title, unit, source, insight, 48 + rows * 42)
+  const boxWidth = (shell.width - 10) / 2
+  values.forEach((item, index) => {
+    const col = index % 2
+    const row = Math.floor(index / 2)
+    const x = shell.x + col * (boxWidth + 10)
+    const y = writer.cursor - 32 - row * 38
+    writer.raw(`${BAND} rg ${x.toFixed(2)} ${y.toFixed(2)} ${boxWidth.toFixed(2)} 32 re f`)
+    writer.raw(`${RULE} RG ${x.toFixed(2)} ${y.toFixed(2)} ${boxWidth.toFixed(2)} 32 re S`)
+    writer.raw(`${DONUT_COLORS[index % DONUT_COLORS.length]} rg ${(x + 6).toFixed(2)} ${y.toFixed(2)} 3 32 re f`)
+    writer.raw(`BT /F2 13 Tf ${INK} rg ${(x + 8).toFixed(2)} ${(y + 16).toFixed(2)} Td (${escapePdfText(String(item.caption ?? item.value))}) Tj ET`)
+    writer.raw(`BT /F1 7.2 Tf ${INK_SOFT} rg ${(x + 58).toFixed(2)} ${(y + 17).toFixed(2)} Td (${escapePdfText(wrap(item.label, 7.2, 'regular', boxWidth - 68)[0] ?? item.label)}) Tj ET`)
+  })
+  writer.space(rows * 38 + 8)
+  closeChartShell(writer, shell)
+}
+
+function renderStackedChart(
+  writer: PdfWriter,
+  title: string,
+  unit: string,
+  source: string,
+  values: Array<{ label: string; value: number; caption?: string }>,
+  insight?: string,
+) {
+  const shell = chartShell(writer, title, unit, source, insight, 62 + values.length * 13)
+  const total = Math.max(values.reduce((sum, item) => sum + item.value, 0), 1)
+  let x = shell.x
+  const y = writer.cursor - 12
+  writer.raw(`${RULE} rg ${shell.x} ${y.toFixed(2)} ${shell.width.toFixed(2)} 14 re f`)
+  values.forEach((item, index) => {
+    const width = Math.max(3, (item.value / total) * shell.width)
+    writer.raw(`${DONUT_COLORS[index % DONUT_COLORS.length]} rg ${x.toFixed(2)} ${y.toFixed(2)} ${width.toFixed(2)} 14 re f`)
+    x += width
+  })
+  writer.space(22)
+  values.forEach((item, index) => {
+    const rowY = writer.cursor - 8
+    writer.raw(`${DONUT_COLORS[index % DONUT_COLORS.length]} rg ${shell.x} ${(rowY - 1).toFixed(2)} 7 7 re f`)
+    writer.raw(`BT /F1 7.4 Tf ${INK_SOFT} rg ${shell.x + 12} ${rowY.toFixed(2)} Td (${escapePdfText(item.label)}) Tj ET`)
+    const captionText = String(item.caption ?? item.value)
+    const captionWidth = widthOf(captionText, 7.4, 'bold')
+    writer.raw(`BT /F2 7.4 Tf ${INK} rg ${(PAGE_WIDTH - MARGIN_X - captionWidth).toFixed(2)} ${rowY.toFixed(2)} Td (${escapePdfText(captionText)}) Tj ET`)
+    writer.space(13)
+  })
+  closeChartShell(writer, shell)
+}
+
+function renderPercentileChart(
+  writer: PdfWriter,
+  title: string,
+  unit: string,
+  source: string,
+  values: Array<{ label: string; value: number; caption?: string }>,
+  insight?: string,
+) {
+  const shell = chartShell(writer, title, unit, source, insight, 72 + values.length * 13)
+
+  const x = shell.x
+  const y = writer.cursor - 12
+  writer.raw(`0.996 0.906 0.906 rg ${x} ${y} ${(shell.width * 0.25).toFixed(2)} 12 re f`)
+  writer.raw(`0.996 0.953 0.780 rg ${(x + shell.width * 0.25).toFixed(2)} ${y} ${(shell.width * 0.5).toFixed(2)} 12 re f`)
+  writer.raw(`0.863 0.973 0.902 rg ${(x + shell.width * 0.75).toFixed(2)} ${y} ${(shell.width * 0.25).toFixed(2)} 12 re f`)
+  values.forEach((item, index) => {
+    const dotX = x + (Math.max(0, Math.min(100, item.value)) / 100) * shell.width
+    writer.raw(`${DONUT_COLORS[index % DONUT_COLORS.length]} rg ${(dotX - 2.5).toFixed(2)} ${(y - 4).toFixed(2)} 5 20 re f`)
+  })
+  writer.raw(`BT /F1 6.4 Tf ${MUTED} rg ${x} ${(y - 11).toFixed(2)} Td (0) Tj ET`)
+  writer.raw(`BT /F1 6.4 Tf ${MUTED} rg ${(x + shell.width * 0.25 - 7).toFixed(2)} ${(y - 11).toFixed(2)} Td (25) Tj ET`)
+  writer.raw(`BT /F1 6.4 Tf ${MUTED} rg ${(x + shell.width * 0.5 - 7).toFixed(2)} ${(y - 11).toFixed(2)} Td (50) Tj ET`)
+  writer.raw(`BT /F1 6.4 Tf ${MUTED} rg ${(x + shell.width * 0.75 - 7).toFixed(2)} ${(y - 11).toFixed(2)} Td (75) Tj ET`)
+  writer.raw(`BT /F1 6.4 Tf ${MUTED} rg ${(x + shell.width - 12).toFixed(2)} ${(y - 11).toFixed(2)} Td (100) Tj ET`)
+  writer.space(32)
+
+  values.forEach((item, index) => {
+    const rowY = writer.cursor - 8
+    writer.raw(`${DONUT_COLORS[index % DONUT_COLORS.length]} rg ${shell.x} ${(rowY - 1).toFixed(2)} 7 7 re f`)
+    writer.raw(`BT /F1 7.4 Tf ${INK_SOFT} rg ${shell.x + 12} ${rowY.toFixed(2)} Td (${escapePdfText(wrap(item.label, 7.4, 'regular', 300)[0] ?? item.label)}) Tj ET`)
+    const captionText = String(item.caption ?? item.value)
+    const captionWidth = widthOf(captionText, 7.4, 'bold')
+    writer.raw(`BT /F2 7.4 Tf ${INK} rg ${(PAGE_WIDTH - MARGIN_X - captionWidth).toFixed(2)} ${rowY.toFixed(2)} Td (${escapePdfText(captionText)}) Tj ET`)
+    writer.space(13)
+  })
+  closeChartShell(writer, shell)
+}
+
+/**
+ * Paleta del donut, en el mismo orden que usa el conic-gradient de la vista
+ * previa HTML — así el mismo dato pinta igual en pantalla y en el PDF.
+ */
+const DONUT_COLORS = [
+  '0.086 0.639 0.290', // verde
+  '0.145 0.388 0.922', // azul
+  '0.961 0.620 0.043', // ámbar
+  '0.863 0.149 0.149', // rojo
+  '0.580 0.639 0.722', // gris pizarra
+]
+
+/** Punto sobre una circunferencia, medido en grados en sentido horario desde arriba. */
+function polarPoint(cx: number, cy: number, radius: number, angleDeg: number) {
+  const rad = (angleDeg * Math.PI) / 180
+  return { x: cx + radius * Math.sin(rad), y: cy + radius * Math.cos(rad) }
+}
+
+/**
+ * Dona de verdad — un anillo partido en gajos proporcionales, con el total en
+ * el centro y una leyenda a la derecha. Antes esto se dibujaba como una barra
+ * horizontal apilada con la etiqueta "donut", que no se parecía en nada a lo
+ * que muestra la vista previa.
+ */
+function renderDonutChart(
+  writer: PdfWriter,
+  title: string,
+  unit: string,
+  source: string,
+  values: Array<{ label: string; value: number; caption?: string }>,
+  insight?: string,
+) {
+  const outerRadius = 44
+  const innerRadius = 26
+  const legendRowHeight = 14
+  const chartHeight = Math.max(outerRadius * 2 + 10, values.length * legendRowHeight)
+  const shell = chartShell(writer, title, unit, source, insight, chartHeight + 14)
+
+  const rawTotal = values.reduce((sum, item) => sum + item.value, 0)
+  const total = Math.max(rawTotal, 1)
+  const top = writer.cursor
+  const cx = shell.x + outerRadius + 4
+  const cy = top - outerRadius - 4
+
+  let angle = 0
+  values.forEach((item, index) => {
+    const sweep = (item.value / total) * 360
+    if (sweep > 0.05) {
+      const color = DONUT_COLORS[index % DONUT_COLORS.length]
+      const steps = Math.max(1, Math.ceil(sweep / 4))
+      const points: string[] = []
+      for (let i = 0; i <= steps; i += 1) {
+        const t = angle + (sweep * i) / steps
+        const p = polarPoint(cx, cy, outerRadius, t)
+        points.push(`${p.x.toFixed(2)} ${p.y.toFixed(2)} ${i === 0 ? 'm' : 'l'}`)
+      }
+      for (let i = steps; i >= 0; i -= 1) {
+        const t = angle + (sweep * i) / steps
+        const p = polarPoint(cx, cy, innerRadius, t)
+        points.push(`${p.x.toFixed(2)} ${p.y.toFixed(2)} l`)
+      }
+      writer.raw(`${color} rg ${points.join(' ')} h f`)
+    }
+    angle += sweep
+  })
+
+  const totalLabel = String(rawTotal)
+  const totalWidth = widthOf(totalLabel, 13, 'bold')
+  writer.raw(
+    `BT /F2 13 Tf ${INK} rg ${(cx - totalWidth / 2).toFixed(2)} ${(cy - 5).toFixed(2)} Td (${escapePdfText(totalLabel)}) Tj ET`,
+  )
+
+  const legendX = cx + outerRadius + 24
+  const legendWidth = Math.max(60, MARGIN_X + CONTENT_WIDTH - legendX - 18)
+  let legendY = top - 6
+  values.forEach((item, index) => {
+    const color = DONUT_COLORS[index % DONUT_COLORS.length]
+    writer.raw(`${color} rg ${legendX.toFixed(2)} ${(legendY - 8).toFixed(2)} 8 8 re f`)
+    const label = wrap(item.label, 8, 'regular', legendWidth)[0] ?? item.label
+    writer.raw(`BT /F1 8 Tf ${INK_SOFT} rg ${(legendX + 12).toFixed(2)} ${(legendY - 7).toFixed(2)} Td (${escapePdfText(label)}) Tj ET`)
+    const captionText = String(item.caption ?? item.value)
+    const captionWidth = widthOf(captionText, 8, 'bold')
+    writer.raw(
+      `BT /F2 8 Tf ${INK} rg ${(PAGE_WIDTH - MARGIN_X - captionWidth).toFixed(2)} ${(legendY - 7).toFixed(2)} Td (${escapePdfText(captionText)}) Tj ET`,
+    )
+    legendY -= legendRowHeight
+  })
+
+  writer.space(chartHeight + 2)
+  closeChartShell(writer, shell)
+}
+
+/** Créditos del cierre: universidad y quien desarrolla el sistema. */
 function renderDocument(document: ReportDocument, assets: ReportAssets) {
-  const writer = new PdfWriter(`${document.subject} · ${document.code}`)
+  const writer = new PdfWriter(`${document.code} · Detection-test`, assets.developer)
   writer.start()
 
   renderLetterhead(writer, assets)
@@ -436,7 +807,7 @@ function renderDocument(document: ReportDocument, assets: ReportAssets) {
       }
 
       if (block.kind === 'note') {
-        renderNote(writer, block.title, block.text)
+        renderNote(writer, block.title, block.text, block.items)
       }
 
       if (block.kind === 'subheading') {
@@ -458,10 +829,22 @@ function renderDocument(document: ReportDocument, assets: ReportAssets) {
         for (const item of block.items) {
           // El separador va en el sangrado, no en espacios: `wrap` normaliza
           // los espacios repetidos y los dejaría en uno solo.
-          writer.text(`• ${item}`, { size: 9.5, indent: 10, leading: 13.5, color: INK })
+          writer.text(`- ${item}`, { size: 9.5, indent: 10, leading: 13.5, color: INK })
           writer.space(2)
         }
         writer.space(4)
+      }
+
+      if (block.kind === 'chart') {
+        renderChart(writer, block.title, block.unit, block.source, block.values, {
+          type: block.type,
+          maxValue: block.maxValue,
+          insight: block.insight,
+        })
+      }
+
+      if (block.kind === 'kpi-grid') {
+        renderKpiGrid(writer, block.items)
       }
 
       if (block.kind === 'table') {
@@ -482,7 +865,6 @@ function renderDocument(document: ReportDocument, assets: ReportAssets) {
     }
   }
 
-  renderCredits(writer, assets)
   return writer.finish()
 }
 

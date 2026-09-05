@@ -43,7 +43,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="es" className={`dark ${inter.variable} ${spaceGrotesk.variable}`}>
+    <html lang="es" data-scroll-behavior="smooth" className={`dark ${inter.variable} ${spaceGrotesk.variable}`}>
       <body className="bg-background text-foreground antialiased">
         {children}
         {/*

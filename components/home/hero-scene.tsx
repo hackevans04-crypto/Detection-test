@@ -9,6 +9,7 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js'
 import { SMAAPass } from 'three/examples/jsm/postprocessing/SMAAPass.js'
+import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js'
 import { MeshSurfaceSampler } from 'three/examples/jsm/math/MeshSurfaceSampler.js'
 import {
   CONCEPT_WINDOWS,
@@ -36,13 +37,14 @@ import { createHeroRail, resolveHeroDirector } from '@/lib/hero/director'
 import { CinematicSky } from './cinematic-sky'
 import { FogLayer } from './fog-layer'
 import { LightRig, StageCastActors, useStageCast, type StageCast } from './hero-stage'
-import { conceptApproach } from '@/lib/hero/timeline'
+import { conceptApproach, getTunnelLeadIntensity } from '@/lib/hero/timeline'
+import { filamentClock, makeFilament, makePulse } from '@/lib/three/filament'
 import { PARTICLE_CHANNELS, type ParticleChannel } from '@/lib/hero/particles'
 import { InstitutionDataStreams } from './institution-data-streams'
 import { NeuralSurface } from './neural-surface'
 import { LivingLandscape } from './living-landscape'
-import { cameraScalar, createPlatformCameraRail } from '@/lib/platform/camera-rail'
-import { smoothstep as platformSmoothstep } from '@/lib/platform/timeline'
+import { cameraScalar, coreCrossWeight, createPlatformCameraRail } from '@/lib/platform/camera-rail'
+import { coreInteriorWeight, cubeHoldFreezePoint, cubeHoldFreezeWeight, stationCameraFreezePoint, stationCameraFreezeWeight, smootherstep as platformSmootherstep, smoothstep as platformSmoothstep } from '@/lib/platform/timeline'
 import { PlatformWorldContent } from '@/components/platform/platform-scene'
 import type { PlatformStateRef } from '@/components/platform/platform-state'
 
@@ -70,6 +72,8 @@ function seededRandom(seed: number) {
 function DirectedCameraRig({ framing, radius, sceneState, platformState }: { framing: Framing; radius: number; sceneState: SceneStateRef; platformState: PlatformStateRef }) {
   const desired = useMemo(() => new THREE.Vector3(), [])
   const look = useMemo(() => new THREE.Vector3(), [])
+  const frozenDesired = useMemo(() => new THREE.Vector3(), [])
+  const frozenLook = useMemo(() => new THREE.Vector3(), [])
   const previous = useMemo(() => new THREE.Vector3(), [])
   const rail = useMemo(() => createPlatformCameraRail(), [])
   const matrix = useMemo(() => new THREE.Matrix4(), [])
@@ -89,6 +93,44 @@ function DirectedCameraRig({ framing, radius, sceneState, platformState }: { fra
       // `getPointAt` la posición adelantaba a la lente y el capítulo entero
       // reproducía una coreografía distinta de la escrita.
       rail.sample(p, desired, look)
+      /*
+        Congelado de cámara durante la visita a una estación interior
+        (`stationCameraFreezeWeight`/`stationCameraFreezePoint`,
+        `lib/platform/timeline.ts`) — el riel es una Catmull-Rom continua
+        que, leída con el progreso real, nunca deja de moverse ni un poco, y
+        esa deriva mínima es justo lo que la auditoría en vivo reportó como
+        "el cubo cambia ligeramente de tamaño entre frames de lectura" en la
+        presentación por caras (retirada esta pasada): no era el cubo, era
+        la cámara — y las estaciones interiores, ahora el único tramo de
+        lectura del capítulo, comparten el mismo riel continuo y necesitan
+        la misma protección. Interpolar hacia la pose fija en vez de
+        sustituir el progreso de entrada evita el salto de corte que un
+        `clamp` binario producía al entrar/salir de la meseta (ver el
+        comentario de la propia función). `freezeWeight` también atenúa el
+        paralaje de puntero más abajo — "no camera drift... aunque
+        matemáticamente sea mínimo, se siente como desincronización",
+        pedido explícito.
+        `cubeHoldFreezeWeight`/`cubeHoldFreezePoint` cubren un segundo
+        instante, muy anterior en el capítulo y sin relación con la lectura
+        de una estación: el final de `CUBE_APPROACH` (`CUBE_HOLD`), para que
+        el cubo tenga un momento de verdad quieto antes de que empiece a
+        transformarse — sin esto, el arco de cámara desde `CHAMBER_ENTER`
+        seguía en pleno barrido angular hasta el último instante ("sigue
+        directo dando vueltas el cubo sin sentido", auditoría en vivo). Los
+        dos rangos de progreso nunca se solapan, así que un simple `Math.max`
+        entre pesos y una selección del punto correspondiente basta.
+      */
+      const stationFreeze = stationCameraFreezeWeight(p)
+      const cubeFreeze = cubeHoldFreezeWeight(p)
+      const freezeWeight = Math.max(stationFreeze, cubeFreeze)
+      const freezePoint = stationFreeze >= cubeFreeze
+        ? (stationFreeze > 0 ? stationCameraFreezePoint(p) : p)
+        : cubeHoldFreezePoint()
+      if (freezeWeight > 0) {
+        rail.sample(freezePoint, frozenDesired, frozenLook)
+        desired.lerp(frozenDesired, freezeWeight)
+        look.lerp(frozenLook, freezeWeight)
+      }
       const narrow = state.size.width < 900
       if (narrow) {
         desired.x *= state.size.width < 640 ? 0.58 : 0.76
@@ -109,7 +151,7 @@ function DirectedCameraRig({ framing, radius, sceneState, platformState }: { fra
         desired.y *= 0.72
         look.x *= 0.5
       }
-      const pointerStrength = narrow || platform.reducedMotion ? 0 : 0.1 * (1 - platformSmoothstep(0.43, 0.6, p))
+      const pointerStrength = narrow || platform.reducedMotion ? 0 : 0.1 * (1 - platformSmoothstep(0.43, 0.6, p)) * (1 - freezeWeight)
       look.x += platform.pointerX * pointerStrength
       look.y -= platform.pointerY * pointerStrength * 0.65
       platform.cameraSpeed = previous.distanceTo(desired)
@@ -117,10 +159,24 @@ function DirectedCameraRig({ framing, radius, sceneState, platformState }: { fra
       camera.position.copy(desired)
       matrix.lookAt(desired, look, camera.up)
       camera.quaternion.setFromRotationMatrix(matrix)
-      const roll = platform.reducedMotion ? 0 : cameraScalar(p, 'roll')
+      let roll = platform.reducedMotion ? 0 : cameraScalar(p, 'roll')
+      if (freezeWeight > 0 && !platform.reducedMotion) {
+        roll = THREE.MathUtils.lerp(roll, cameraScalar(freezePoint, 'roll'), freezeWeight)
+      }
       rollQuaternion.setFromAxisAngle(forward, roll)
       camera.quaternion.multiply(rollQuaternion)
-      const fov = cameraScalar(p, 'fov')
+      /*
+        Pulso de cruce (punto 2 y 12): una campana corta justo en la costura
+        Inicio→Plataforma (aquí, `p` cerca de 0) y otra en el cruce del
+        núcleo (`coreCrossWeight`, ya usado por `platform-cast.tsx` para el
+        material). El composer lee `portalCrossWeight` para el bloom/CA del
+        cruce — ver `HeroScene`.
+      */
+      platform.portalCrossWeight = Math.max(1 - platformSmoothstep(0, 0.05, p), coreCrossWeight(p))
+      const fovPulse = platform.reducedMotion ? 0 : platform.portalCrossWeight * 2.2
+      let fovBase = cameraScalar(p, 'fov')
+      if (freezeWeight > 0) fovBase = THREE.MathUtils.lerp(fovBase, cameraScalar(freezePoint, 'fov'), freezeWeight)
+      const fov = fovBase + fovPulse
       if (Math.abs(camera.fov - fov) > 0.001) {
         camera.fov = fov
         camera.updateProjectionMatrix()
@@ -140,8 +196,15 @@ function DirectedCameraRig({ framing, radius, sceneState, platformState }: { fra
       signal.drawCalls = state.gl.info.render.calls
       return
     }
-    if (Math.abs(camera.fov - frame.cameraFov) > 0.001) {
-      camera.fov = frame.cameraFov
+    // Adelanto del portal (punto 1): la campana empieza a subir antes de que
+    // `platform.progress` exista siquiera, para que el pulso de FOV llegue
+    // ya en marcha en el instante exacto en que el riel de Plataforma toma
+    // el mando (arriba, `p > 0.001`) — nunca un salto de 0 a un valor alto.
+    platform.portalCrossWeight = platform.reducedMotion ? 0 : smootherstep(0.95, 1, signal.progress)
+    const fovPulse = platform.portalCrossWeight * 2.2
+    const targetFov = frame.cameraFov + fovPulse
+    if (Math.abs(camera.fov - targetFov) > 0.001) {
+      camera.fov = targetFov
       camera.updateProjectionMatrix()
     }
 
@@ -733,7 +796,14 @@ function NeuralPulsePaths({ radius, framing, sceneState }: { radius: number; fra
   useFrame(() => {
     const signal = sceneState.current
     const idleCurrent = (1 - smootherstep(inside('ACTIVATION', 0.67), inside('DISASSEMBLY', 0.9), signal.progress)) * 0.18
-    const intensity = Math.max(signal.director.neuralIntensity, signal.director.innerIntensity, idleCurrent)
+    const base = Math.max(signal.director.neuralIntensity, signal.director.innerIntensity, idleCurrent)
+    /*
+      Jerarquía con el túnel: mientras `InnerNeuralTunnel` tiene su momento de
+      vuelo (ENTRY→ARRIVAL) estos siete hilos ceden a la mitad de su brillo, y
+      lo recuperan como portador fino de "señal" durante la lectura, cuando el
+      túnel pesado ya se ha retirado. Ver `getTunnelLeadIntensity`.
+    */
+    const intensity = base * (1 - getTunnelLeadIntensity(signal.progress) * 0.5)
     if (group.current) group.current.visible = intensity > 0.015
     paths.forEach((path, index) => {
       const flow = (signal.time * (0.16 + signal.director.cameraSpeed * 0.045) + signal.progress * 1.9 + index * 0.137) % 1
@@ -784,6 +854,17 @@ function InnerNeuralTunnel({ radius, framing, sceneState, quality }: { radius: n
   const instance = useMemo(() => new THREE.Object3D(), [])
   const gateColor = useMemo(() => new THREE.Color(), [])
   const nodeColor = useMemo(() => new THREE.Color(), [])
+  /*
+    Pista de profundidad horneada una sola vez.
+
+    Compuertas y nodos —a diferencia de los filamentos, que comparten el mismo
+    rango de Z entre los doce— sí están a profundidades bien distintas (las seis
+    compuertas van de −0,42R a −3,92R; los nodos, por bandas de −0,28R a
+    −3,68R). Mezclar su color instanciado hacia este azul de niebla en
+    proporción a esa profundidad separa "cerca" de "lejos" sin coste por
+    fotograma: se calcula una vez, aquí, no en el bucle de animación.
+  */
+  const depthFog = useMemo(() => new THREE.Color('#0a1c33'), [])
   const tubeSegments = quality === 'high' ? 72 : quality === 'medium' ? 56 : 40
   const tubeRadialSegments = quality === 'high' ? 6 : quality === 'medium' ? 5 : 4
   const gateArcSegments = quality === 'high' ? 96 : quality === 'medium' ? 72 : 48
@@ -822,21 +903,35 @@ function InnerNeuralTunnel({ radius, framing, sceneState, quality }: { radius: n
       instance.scale.setScalar(radius * (index % 6 === 0 ? 0.019 : 0.011))
       instance.updateMatrix()
       mesh.setMatrixAt(index, instance.matrix)
-      mesh.setColorAt(index, nodeColor.set(index % 3 ? '#73eaff' : '#907bff'))
+      const depth = Math.floor(index / 7)
+      nodeColor.set(index % 3 ? '#73eaff' : '#907bff').lerp(depthFog, (depth / 5) * 0.55)
+      mesh.setColorAt(index, nodeColor)
     })
     mesh.instanceMatrix.needsUpdate = true
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true
-  }, [instance, nodeColor, nodes, radius])
+  }, [depthFog, instance, nodeColor, nodes, radius])
   useEffect(() => {
     const mesh = gateInstances.current
     if (!mesh) return
     mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
-    gates.forEach((_, index) => mesh.setColorAt(index, gateColor.set(index % 2 ? '#7e6dff' : '#47e8ff')))
+    gates.forEach((_, index) => {
+      gateColor.set(index % 2 ? '#7e6dff' : '#47e8ff').lerp(depthFog, (index / (gates.length - 1)) * 0.45)
+      mesh.setColorAt(index, gateColor)
+    })
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true
-  }, [gateColor, gates])
+  }, [depthFog, gateColor, gates])
   useFrame(() => {
     const signal = sceneState.current
-    const intensity = Math.max(signal.director.innerIntensity, signal.director.entryIntensity * 0.64)
+    const base = Math.max(signal.director.innerIntensity, signal.director.entryIntensity * 0.64)
+    /*
+      Es el actor más pesado del interior (12 filamentos + 6 compuertas + 42
+      nodos), así que es el primero que tiene que ceder el paso: pleno durante
+      el vuelo de ENTRY a ARRIVAL, retirado a un piso bajo mientras se lee cada
+      concepto (`readingHold`), para que el texto deje de competir con él.
+    */
+    const lead = getTunnelLeadIntensity(signal.progress)
+    const duck = 1 - signal.director.readingHold * 0.6
+    const intensity = base * lead * duck
     if (group.current) {
       group.current.visible = intensity > 0.012
       group.current.rotation.z = signal.time * 0.018 + signal.progress * 0.16
@@ -895,13 +990,81 @@ function InnerNeuralTunnel({ radius, framing, sceneState, quality }: { radius: n
   )
 }
 
-function PlatformPortalTunnel({ radius, framing, sceneState }: { radius: number; framing: Framing; sceneState: SceneStateRef }) {
+const portalCoreFragment = /* glsl */ `
+  uniform float uTime;
+  uniform float uIntensity;
+  varying vec2 vUv;
+  void main() {
+    vec2 centered = vUv - 0.5;
+    float dist = length(centered) * 2.0;
+    float veins = sin(atan(centered.y, centered.x) * 9.0 + uTime * 1.6 - dist * 6.0) * 0.5 + 0.5;
+    float core = pow(max(1.0 - dist, 0.0), 2.4);
+    float ring = smoothstep(0.82, 0.7, dist) * smoothstep(0.55, 0.68, dist);
+    vec3 color = mix(vec3(0.1, 0.65, 1.0), vec3(0.85, 0.98, 1.0), core);
+    float alpha = (core * 0.9 + ring * veins * 0.6) * uIntensity;
+    gl_FragColor = vec4(color, alpha);
+  }
+`
+
+/**
+ * El portal físico (punto 2 del pedido).
+ *
+ * Antes era sólo el anillo de ocho toros concéntricos: buen "vórtice", pero
+ * ningún objeto con el que la cámara pudiera "chocar" — ni centro
+ * volumétrico, ni piezas mecánicas, ni partículas absorbidas. Se conserva el
+ * mismo driver (`portalIntensity` del director de Inicio, ya aprobado) y se
+ * le suma lo que le faltaba: un disco central con shader propio (vetas +
+ * núcleo, mismo lenguaje que `InnerCore`), seis puntales mecánicos en el aro
+ * frontal (instancedMesh, un solo draw call) y un puñado de partículas que
+ * viajan hacia el centro en vez de flotar — la lectura de "portal que se
+ * atraviesa", no de "adorno que se cruza por delante".
+ */
+const PORTAL_STRUT_COUNT = 6
+const PORTAL_PARTICLE_COUNT = 36
+
+function PlatformPortalTunnel({ radius, framing, sceneState, platformState }: { radius: number; framing: Framing; sceneState: SceneStateRef; platformState: PlatformStateRef }) {
   const group = useRef<THREE.Group>(null)
   const materials = useRef<Array<THREE.MeshBasicMaterial | null>>([])
   const depths = useMemo(() => Array.from({ length: 8 }, (_, index) => -0.28 - index * 0.48), [])
+  const coreMaterial = useRef<THREE.ShaderMaterial>(null)
+  const coreUniforms = useMemo(() => ({ uTime: { value: 0 }, uIntensity: { value: 0 } }), [])
+  const strutInstances = useRef<THREE.InstancedMesh>(null)
+  const strutMaterial = useRef<THREE.MeshBasicMaterial>(null)
+  const strutDummy = useMemo(() => new THREE.Object3D(), [])
+  const strutUp = useMemo(() => new THREE.Vector3(0, 0, 1), [])
+  const strutDir = useMemo(() => new THREE.Vector3(), [])
+  const strutQuat = useMemo(() => new THREE.Quaternion(), [])
+  const particlePoints = useRef<THREE.Points>(null)
+  const particleMaterial = useRef<THREE.PointsMaterial>(null)
+  const particlePositions = useMemo(() => new Float32Array(PORTAL_PARTICLE_COUNT * 3), [])
+  const particleSeeds = useMemo(() => Array.from({ length: PORTAL_PARTICLE_COUNT }, (_, index) => {
+    const random = (n: number) => { const v = Math.sin((index * 53.7 + n) * 12.9898) * 43758.5453; return v - Math.floor(v) }
+    const angle = random(1) * Math.PI * 2
+    return { angle, ring: 0.35 + random(2) * 0.55, speed: 0.35 + random(3) * 0.4, phase: random(4) }
+  }), [])
+
   useFrame(() => {
     const signal = sceneState.current
-    const intensity = signal.director.portalIntensity
+    /*
+      `portalIntensity` se queda clavado en 1 para siempre: es el valor del
+      último plano (`END`) y `resolveHeroDirector` no vuelve a moverse una vez
+      que Inicio termina. Sin más freno, este portal —ya enriquecido con
+      centro volumétrico, puntales y partículas— seguía a brillo pleno
+      DURANTE TODO el capítulo Plataforma, apilado detrás de su propio
+      corredor.
+
+      Medido: el corredor propio de Plataforma (`corridor` en
+      `platform-cast.tsx`) ya está a intensidad plena desde `platform.progress
+      = 0` — su propio `entry` no empieza a apagarse hasta 0,05. Con esta
+      ventana en 0,05–0,14 este portal se quedaba a brillo pleno ENCIMA del
+      corredor durante ese primer tramo entero: dos túneles completos
+      superpuestos, no una puerta seguida de un túnel. Se acorta a un cruce
+      breve —apagado casi del todo hacia 0,028— para que lea como
+      ENTRY_RING → TUNNEL_BODY: el aro que se atraviesa, y luego el corredor
+      propio se queda solo llevando el resto del tramo.
+    */
+    const platformFade = 1 - smootherstep(0.008, 0.028, platformState.current.progress)
+    const intensity = signal.director.portalIntensity * platformFade
     if (group.current) {
       group.current.visible = intensity > 0.008
       group.current.rotation.z = signal.time * 0.04 + signal.progress * 0.26
@@ -909,6 +1072,47 @@ function PlatformPortalTunnel({ radius, framing, sceneState }: { radius: number;
     materials.current.forEach((material, index) => {
       if (material) material.opacity = intensity * (0.4 - index * 0.025)
     })
+    if (coreUniforms.uTime) coreUniforms.uTime.value = signal.time
+    if (coreUniforms.uIntensity) coreUniforms.uIntensity.value = intensity * 0.85
+    const struts = strutInstances.current
+    if (struts) {
+      // Puntales radiales en el aro frontal: la longitud del cajón (eje Z
+      // local) tiene que apuntar hacia fuera desde el centro, no quedarse
+      // alineada con el eje Z del mundo — de ahí el cuaternión en vez de una
+      // rotación simple.
+      for (let index = 0; index < PORTAL_STRUT_COUNT; index += 1) {
+        const angle = (index / PORTAL_STRUT_COUNT) * Math.PI * 2 + signal.time * 0.05
+        strutDir.set(Math.cos(angle), Math.sin(angle), 0)
+        strutDummy.position.copy(strutDir).multiplyScalar(radius * 0.42).setZ(-0.28 * radius)
+        strutQuat.setFromUnitVectors(strutUp, strutDir)
+        strutDummy.quaternion.copy(strutQuat)
+        strutDummy.scale.set(1, 1, radius * 0.42)
+        strutDummy.updateMatrix()
+        struts.setMatrixAt(index, strutDummy.matrix)
+      }
+      struts.instanceMatrix.needsUpdate = true
+    }
+    if (strutMaterial.current) strutMaterial.current.opacity = intensity * 0.55
+    const points = particlePoints.current
+    if (points) {
+      points.visible = intensity > 0.01
+      if (points.visible) {
+        const attribute = points.geometry.getAttribute('position') as THREE.BufferAttribute
+        particleSeeds.forEach((seed, index) => {
+          const travel = (signal.time * seed.speed + seed.phase) % 1
+          const depth = THREE.MathUtils.lerp(0.1, -3.9, travel) * radius
+          const shrink = 1 - travel * 0.7
+          attribute.setXYZ(
+            index,
+            Math.cos(seed.angle) * radius * seed.ring * shrink,
+            Math.sin(seed.angle) * radius * seed.ring * shrink,
+            depth,
+          )
+        })
+        attribute.needsUpdate = true
+      }
+    }
+    if (particleMaterial.current) particleMaterial.current.opacity = intensity * 0.75
   })
   return (
     <group ref={group} position={[framing.stageX, framing.stageY - radius * 1.24, 0]} visible={false} renderOrder={16}>
@@ -922,6 +1126,26 @@ function PlatformPortalTunnel({ radius, framing, sceneState }: { radius: number;
           />
         </mesh>
       ))}
+      <mesh position={[0, 0, -1.9 * radius]}>
+        <planeGeometry args={[radius * 0.9, radius * 0.9]} />
+        <shaderMaterial
+          ref={coreMaterial}
+          vertexShader="varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }"
+          fragmentShader={portalCoreFragment}
+          uniforms={coreUniforms}
+          transparent depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} side={THREE.DoubleSide}
+        />
+      </mesh>
+      <instancedMesh ref={strutInstances} args={[undefined, undefined, PORTAL_STRUT_COUNT]} frustumCulled={false}>
+        <boxGeometry args={[0.02, 0.02, 1]} />
+        <meshBasicMaterial ref={strutMaterial} color="#bfeeff" transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} />
+      </instancedMesh>
+      <points ref={particlePoints} frustumCulled={false} visible={false}>
+        <bufferGeometry>
+          <bufferAttribute attach="attributes-position" args={[particlePositions, 3]} />
+        </bufferGeometry>
+        <pointsMaterial ref={particleMaterial} color="#d8fbff" size={radius * 0.018} transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} sizeAttenuation />
+      </points>
     </group>
   )
 }
@@ -1011,7 +1235,11 @@ function InnerAnatomyFragments({ cast, framing, sceneState, quality }: { cast: S
   useEffect(() => () => sprite.dispose(), [sprite])
   useFrame(() => {
     const signal = sceneState.current
-    const intensity = signal.director.innerIntensity
+    // Mismo escalonado que `InnerNeuralTunnel`: es polvo de superficie del
+    // mismo momento de vuelo, así que cede el paso con el mismo criterio.
+    const lead = getTunnelLeadIntensity(signal.progress)
+    const duck = 1 - signal.director.readingHold * 0.6
+    const intensity = signal.director.innerIntensity * lead * duck
     if (group.current) group.current.visible = intensity > 0.008
     if (intensity <= 0.008) {
       material.opacity = 0
@@ -1170,106 +1398,12 @@ const innerCoreFragment = /* glsl */ `
   }
 `
 
-/**
- * Reloj compartido de los filamentos. Uno solo para todos: cada tubo no
- * necesita su propio uniforme de tiempo ni su propio `useFrame`.
- */
-const filamentClock = { value: 0 }
-
-/**
- * Convierte un tubo plano en un filamento de energía.
- *
- * Los caminos de señal eran `TubeGeometry` con `MeshBasicMaterial`: radio
- * constante en el mundo y material sin iluminar, así que dentro del sujeto
- * —donde la cámara pasa muy cerca— se leían como placas cian de ancho
- * uniforme, cortadas en seco en los extremos.
- *
- * Se corrige inyectando en el shader ya compilado en lugar de sustituir el
- * material: así siguen funcionando la opacidad, el color y la mezcla que el
- * bucle por fotograma escribe sobre estos mismos objetos.
- *
- * Con `vUv` del tubo se obtiene el corte transversal (y) y el recorrido (x):
- * de ahí salen el núcleo fino, el desvanecido del borde, el afilado de las
- * puntas y un pulso que viaja por la ruta.
- */
-function makeFilament(material: THREE.Material | null, seed: number) {
-  const patched = material as (THREE.Material & { __filament?: boolean }) | null
-  if (!patched || patched.__filament) return
-  patched.__filament = true
-  patched.defines = { ...(patched.defines ?? {}), USE_UV: '' }
-  patched.onBeforeCompile = (shader) => {
-    shader.uniforms.uFilTime = filamentClock
-    shader.uniforms.uFilSeed = { value: seed * 0.37 }
-    shader.fragmentShader = shader.fragmentShader
-      .replace(
-        '#include <common>',
-        `#include <common>
-        uniform float uFilTime;
-        uniform float uFilSeed;`,
-      )
-      .replace(
-        '#include <opaque_fragment>',
-        `#include <opaque_fragment>
-        // Corte transversal: el brillo se concentra en la línea central.
-        float filAcross = sin(vUv.y * 3.14159265);
-        float filCore = pow(max(filAcross, 0.0), 6.0);
-        // Puntas afiladas: un tubo cortado en recto se lee como cinta.
-        float filTaper = smoothstep(0.0, 0.11, vUv.x) * smoothstep(1.0, 0.89, vUv.x);
-        // Pulso que recorre la ruta: energía en tránsito, no tubo encendido.
-        float filHead = fract(uFilTime * 0.17 + uFilSeed);
-        float filDelta = vUv.x - filHead;
-        filDelta -= floor(filDelta + 0.5);
-        float filPulse = filDelta <= 0.0 && filDelta > -0.24
-          ? pow(1.0 + filDelta / 0.24, 3.0)
-          : 0.0;
-        gl_FragColor.rgb *= 0.8 + filCore * 1.45 + filPulse * 2.1;
-        gl_FragColor.a *= (0.2 + filCore * 0.95) * filTaper * (0.6 + filPulse * 1.5);`,
-      )
-  }
-  patched.needsUpdate = true
-}
-
-/**
- * Convierte una esfera de pulso plana en un evento con núcleo y halo.
- *
- * Las esferas de pulso usan `MeshBasicMaterial`, que pinta el color plano en
- * todo el disco. Medido en el hueco entre Análisis y Acompañamiento: el perfil
- * de luminancia iba 217 · 217 · 216 · 212 · 204 a lo largo de 90 px, es decir
- * un círculo sin caída. No estaba quemado —el pico no llegaba a 255— pero al
- * no tener degradado se leía como una mancha sin detalle.
- *
- * Para una esfera centrada en el origen la normal es la propia posición, así
- * que basta llevarla a espacio de vista: su componente Z vale 1 mirando a
- * cámara y 0 en la silueta. De ahí sale la caída, sin tocar geometría ni la
- * opacidad que el bucle escribe sobre este material.
- */
-function makePulse(material: THREE.Material | null) {
-  const patched = material as (THREE.Material & { __pulse?: boolean }) | null
-  if (!patched || patched.__pulse) return
-  patched.__pulse = true
-  patched.onBeforeCompile = (shader) => {
-    shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', `#include <common>
-        varying vec3 vPulseN;`)
-      .replace('#include <begin_vertex>', `#include <begin_vertex>
-        vPulseN = normalize(normalMatrix * normalize(position));`)
-    shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', `#include <common>
-        varying vec3 vPulseN;`)
-      .replace(
-        '#include <opaque_fragment>',
-        `#include <opaque_fragment>
-        // 1 mirando a cámara, 0 en la silueta: la caída del propio volumen.
-        float pulseFacing = clamp(vPulseN.z, 0.0, 1.0);
-        float pulseCore = pow(pulseFacing, 2.4);
-        float pulseHalo = pow(pulseFacing, 0.55);
-        // Núcleo claro, halo que sobrevive hasta el borde: evento, no mancha.
-        gl_FragColor.rgb *= 0.5 + pulseCore * 0.85;
-        gl_FragColor.a *= 0.18 + pulseCore * 0.62 + pulseHalo * 0.2;`,
-      )
-  }
-  patched.needsUpdate = true
-}
+/*
+  `filamentClock`, `makeFilament` y `makePulse` viven ahora en
+  `lib/three/filament.ts`: el capítulo Plataforma reutiliza el mismo parche de
+  shader para el pulso de llegada del relevo (ver `HandoffSignal` en
+  `platform-scene.tsx`). Es exactamente el mismo GLSL, sólo movido.
+*/
 
 function InnerCore({ radius, framing, sceneState }: { radius: number; framing: Framing; sceneState: SceneStateRef }) {
   const group = useRef<THREE.Group>(null)
@@ -1770,8 +1904,19 @@ function World({ sceneState, platformState, framing, quality, cast, debugScene }
   useFrame(() => {
     const signal = sceneState.current
     const p = signal.progress
+    /*
+      Platform Chamber (pedido explícito: "fog volumétrico tenue"). Un solo
+      dueño de la niebla en todo el capítulo compartido — este mismo
+      `worldFog`, ya declarado con `attach="fog"` más abajo — así que la
+      Chamber no monta su propio `FogExp2` (eso pelearía por `scene.fog` con
+      éste); sólo le suma un peso propio, activo sólo durante `CHAMBER`/
+      `CUBE_APPROACH` y apagado antes de que la presentación por caras
+      empiece a competir por atención.
+    */
+    const chamberFog = platformSmootherstep(0.09, 0.14, platformState.current.progress)
+      * (1 - platformSmootherstep(0.19, 0.26, platformState.current.progress))
     // Niebla global sólo para integrar distancias. No sustituye a las cartas.
-    if (worldFog.current) worldFog.current.density = 0.007 + signal.director.fogIntensity * 0.005
+    if (worldFog.current) worldFog.current.density = 0.007 + signal.director.fogIntensity * 0.005 + chamberFog * 0.05
     const material = networkPlate.current?.material as THREE.MeshBasicMaterial | undefined
     const exterior = exteriorVisibility(p)
     if (material) material.opacity = (0.04 + bell(p, PHASE.UNLOCK, PHASE.ORBIT, until('ENTRY')) * 0.12) * exterior
@@ -1843,7 +1988,7 @@ function World({ sceneState, platformState, framing, quality, cast, debugScene }
 
       {/* -------------------------------------------------------------- escena */}
       <LightRig cast={cast} sceneState={sceneState} framing={framing} />
-      <StageCastActors cast={cast} sceneState={sceneState} framing={framing} />
+      <StageCastActors cast={cast} sceneState={sceneState} framing={framing} platformState={platformState} />
       {!debugScene ? (
         <>
           <HeroRing radius={cast.radius} framing={framing} sceneState={sceneState} />
@@ -1855,6 +2000,7 @@ function World({ sceneState, platformState, framing, quality, cast, debugScene }
             framing={framing}
             quality={quality}
             sceneState={sceneState}
+            platformState={platformState}
           />
           <NeuralPulsePaths radius={cast.radius} framing={framing} sceneState={sceneState} />
           <InnerNeuralTunnel radius={cast.radius} framing={framing} sceneState={sceneState} quality={quality} />
@@ -1863,7 +2009,7 @@ function World({ sceneState, platformState, framing, quality, cast, debugScene }
           <Beam radius={cast.radius} framing={framing} sceneState={sceneState} />
           <Scanner radius={cast.radius} framing={framing} sceneState={sceneState} />
           <PlatformPulses radius={cast.radius} framing={framing} sceneState={sceneState} />
-          <PlatformPortalTunnel radius={cast.radius} framing={framing} sceneState={sceneState} />
+          <PlatformPortalTunnel radius={cast.radius} framing={framing} sceneState={sceneState} platformState={platformState} />
           <Concepts radius={cast.radius} framing={framing} sceneState={sceneState} />
           <InstitutionDataStreams radius={cast.radius} framing={framing} sceneState={sceneState} />
         </>
@@ -2207,9 +2353,61 @@ const SCALE_FLOOR = 0.62
 /** Espera mínima entre dos cambios de resolución, en segundos. */
 const COOLDOWN = 1.1
 
+/*
+  Vignette + aberración cromática + suavizado interior — un solo pase.
+
+  Postprocesado nuevo (punto 15 del pedido). Los tres comparten pase porque
+  los tres leen el mismo `tDiffuse` y ninguno necesita el resultado del
+  anterior: separarlos en tres `ShaderPass` sólo pagaría tres resoluciones de
+  textura de más. La aberración y el suavizado se quedan en cero fuera de sus
+  ventanas —el cruce de portal para la primera (`uAberration`, ligada a
+  `portalCrossWeight`), el tramo interior del núcleo para el segundo
+  (`uSoften`)— así que el vignette es lo único realmente "siempre puesto", y
+  muy leve.
+*/
+const gradeFragment = /* glsl */ `
+  uniform sampler2D tDiffuse;
+  uniform vec2 uTexel;
+  uniform float uAberration;
+  uniform float uVignette;
+  uniform float uSoften;
+  varying vec2 vUv;
+
+  void main() {
+    vec2 centered = vUv - 0.5;
+    float dist = length(centered);
+    vec2 dir = dist > 0.0001 ? centered / dist : vec2(0.0);
+    vec2 shift = dir * uAberration * dist * 0.02;
+    vec3 color = vec3(
+      texture2D(tDiffuse, vUv - shift).r,
+      texture2D(tDiffuse, vUv).g,
+      texture2D(tDiffuse, vUv + shift).b
+    );
+    if (uSoften > 0.001) {
+      vec2 texel = uTexel * 1.6;
+      vec3 blur = color;
+      blur += texture2D(tDiffuse, vUv + vec2(texel.x, 0.0)).rgb;
+      blur += texture2D(tDiffuse, vUv - vec2(texel.x, 0.0)).rgb;
+      blur += texture2D(tDiffuse, vUv + vec2(0.0, texel.y)).rgb;
+      blur += texture2D(tDiffuse, vUv - vec2(0.0, texel.y)).rgb;
+      color = mix(color, blur * 0.2, clamp(uSoften, 0.0, 1.0));
+    }
+    float vignette = smoothstep(0.86, 0.32, dist);
+    color *= mix(1.0, vignette, uVignette);
+    gl_FragColor = vec4(color, 1.0);
+  }
+`
+
 /** Bloom aislado por luminancia: sólo reaccionan pulsos, HUD y bordes emisivos. */
-function CinematicBloom({ quality, bloom = true, sceneState }: { quality: Exclude<Quality, 'low'>; bloom?: boolean; sceneState: SceneStateRef }) {
+function CinematicBloom({ quality, bloom = true, sceneState, platformState }: { quality: Exclude<Quality, 'low'>; bloom?: boolean; sceneState: SceneStateRef; platformState: PlatformStateRef }) {
   const { gl, scene, camera, size } = useThree()
+  const gradeUniforms = useMemo(() => ({
+    tDiffuse: { value: null as THREE.Texture | null },
+    uTexel: { value: new THREE.Vector2(1 / size.width, 1 / size.height) },
+    uAberration: { value: 0 },
+    uVignette: { value: 0.22 },
+    uSoften: { value: 0 },
+  }), [size.height, size.width])
   const composer = useMemo(() => {
     const next = new EffectComposer(gl)
     next.addPass(new RenderPass(scene, camera))
@@ -2225,9 +2423,14 @@ function CinematicBloom({ quality, bloom = true, sceneState }: { quality: Exclud
       ))
     }
     next.addPass(new SMAAPass())
+    next.addPass(new ShaderPass({
+      uniforms: gradeUniforms,
+      vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+      fragmentShader: gradeFragment,
+    }))
     next.addPass(new OutputPass())
     return next
-  }, [bloom, camera, gl, quality, scene, size.height, size.width])
+  }, [bloom, camera, gl, gradeUniforms, quality, scene, size.height, size.width])
 
   /*
     Resolución dinámica.
@@ -2266,6 +2469,22 @@ function CinematicBloom({ quality, bloom = true, sceneState }: { quality: Exclud
   useEffect(() => () => composer.dispose(), [composer])
 
   useFrame((state, delta) => {
+    const platform = platformState.current
+    // Aberración cromática: sólo en los dos cruces de portal (entrada y
+    // núcleo), nunca de fondo — "quemar" el efecto todo el capítulo lo
+    // convertiría en textura en vez de en evento.
+    gradeUniforms.uAberration.value = platform.reducedMotion ? 0 : platform.portalCrossWeight
+    /*
+      Suavizado muy leve durante la visita interior del núcleo — el
+      "depth of field barato" del punto 15, no un pase de DoF físico. Dos
+      componentes: un piso casi imperceptible durante toda la visita
+      (`coreInteriorWeight`, constante en las cuatro estaciones) y un pico
+      algo mayor sólo en el instante del cruce físico (`portalCrossWeight`,
+      que ya cubre CORE_ENTRY/CORE_EXIT) — nunca los dos a la vez a tope, o
+      la lectura de las cuatro estaciones se volvería borrosa de fondo todo
+      el tramo.
+    */
+    gradeUniforms.uSoften.value = platform.reducedMotion ? 0 : coreInteriorWeight(platform.progress) * 0.1 + platform.portalCrossWeight * 0.18
     composer.render(delta)
 
     const now = state.clock.elapsedTime
@@ -2323,7 +2542,7 @@ function SceneBody({ sceneState, platformState, framing, quality, reducedMotion,
       {/* Los cuatro GLB optimizados pueden precargarse sin bloquear el primer
           fotograma de Inicio: su propia frontera de Suspense los aísla. */}
       <Suspense fallback={null}><PlatformWorldContent sceneState={platformState} /></Suspense>
-      {quality !== 'low' ? <CinematicBloom quality={quality} bloom={!debugScene} sceneState={sceneState} /> : null}
+      {quality !== 'low' ? <CinematicBloom quality={quality} bloom={!debugScene} sceneState={sceneState} platformState={platformState} /> : null}
     </>
   )
 }

@@ -2,9 +2,10 @@
 
 import { useFrame, useThree } from '@react-three/fiber'
 import { Environment, Lightformer } from '@react-three/drei'
-import { useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { smoothstep } from '@/lib/platform/timeline'
+import { makeFilament, makePulse } from '@/lib/three/filament'
 import { PlatformCast } from './platform-cast'
 import { PlatformGlyphs } from './platform-glyphs'
 import { PlatformParticles } from './platform-particles'
@@ -13,6 +14,7 @@ import type { PlatformStateRef } from './platform-state'
 function HandoffSignal({ sceneState }: { sceneState: PlatformStateRef }) {
   const group = useRef<THREE.Group>(null)
   const pathMaterial = useRef<THREE.MeshBasicMaterial>(null)
+  const particleMaterial = useRef<THREE.MeshBasicMaterial>(null)
   const particles = useRef<THREE.InstancedMesh>(null)
   const curve = useMemo(() => new THREE.CatmullRomCurve3([
     new THREE.Vector3(0, -1.18, -2.5),
@@ -23,23 +25,40 @@ function HandoffSignal({ sceneState }: { sceneState: PlatformStateRef }) {
   ], false, 'centripetal', 0.5), [])
   const geometry = useMemo(() => new THREE.TubeGeometry(curve, 72, 0.012, 6, false), [curve])
   const dummy = useMemo(() => new THREE.Object3D(), [])
+  const particleCount = 40
+
+  useEffect(() => {
+    // Mismo lenguaje visual que el interior del cerebro: un tubo con núcleo,
+    // puntas afiladas y un pulso que lo recorre, en vez de una placa plana.
+    makeFilament(pathMaterial.current, 0)
+    makePulse(particleMaterial.current)
+  }, [])
 
   useFrame(() => {
     const signal = sceneState.current
-    const visibility = smoothstep(0.002, 0.025, signal.progress) * (1 - smoothstep(0.17, 0.24, signal.progress))
+    /*
+      La ventana se ensancha y el tubo deja de ser casi invisible (0,34 de
+      opacidad máxima) — era, junto con el HUD de anillos, lo único que
+      ocupaba el relevo Inicio→Plataforma, y aun así apenas se veía. Con el
+      filamento vistiendo el tubo el aumento de opacidad no lo convierte en
+      una plancha: el shader ya concentra el brillo en el núcleo y en el
+      pulso que viaja por él.
+    */
+    const visibility = smoothstep(0.001, 0.02, signal.progress) * (1 - smoothstep(0.18, 0.25, signal.progress))
     if (group.current) group.current.visible = visibility > 0.004
-    if (pathMaterial.current) pathMaterial.current.opacity = visibility * 0.34
+    if (pathMaterial.current) pathMaterial.current.opacity = visibility * 0.62
     if (!particles.current || visibility <= 0.004) return
     const count = particles.current.count
     for (let index = 0; index < count; index += 1) {
       const travel = (index / count + signal.progress * 1.7 + signal.time * 0.018) % 1
       const point = curve.getPoint(travel)
       dummy.position.copy(point)
-      dummy.scale.setScalar((0.7 + Math.sin((travel + signal.time * 0.05) * Math.PI * 2) * 0.22) * visibility)
+      dummy.scale.setScalar((0.75 + Math.sin((travel + signal.time * 0.05) * Math.PI * 2) * 0.25) * visibility)
       dummy.updateMatrix()
       particles.current.setMatrixAt(index, dummy.matrix)
     }
     particles.current.instanceMatrix.needsUpdate = true
+    if (particleMaterial.current) particleMaterial.current.opacity = 0.92 * (0.6 + visibility * 0.4)
   })
 
   return (
@@ -47,9 +66,9 @@ function HandoffSignal({ sceneState }: { sceneState: PlatformStateRef }) {
       <mesh geometry={geometry}>
         <meshBasicMaterial ref={pathMaterial} color="#48dfff" transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} />
       </mesh>
-      <instancedMesh ref={particles} args={[undefined, undefined, 24]} frustumCulled={false}>
-        <sphereGeometry args={[0.035, 6, 6]} />
-        <meshBasicMaterial color="#c8fbff" transparent opacity={0.88} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} />
+      <instancedMesh ref={particles} args={[undefined, undefined, particleCount]} frustumCulled={false}>
+        <sphereGeometry args={[0.04, 8, 8]} />
+        <meshBasicMaterial ref={particleMaterial} color="#c8fbff" transparent opacity={0.92} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} />
       </instancedMesh>
     </group>
   )

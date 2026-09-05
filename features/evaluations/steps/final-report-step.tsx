@@ -30,6 +30,7 @@ export function FinalReportStep() {
   const contentReady = progress.pendingSteps.length === 0
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState<string | null>(null)
+  const reportInstrumentSummary = buildReport(evaluation).summary.find((item) => item.label === 'Instrumentos aplicados')
 
   const professional = evaluation.report.professional
   const signed = professional.name.trim().length > 0 && professional.role.trim().length > 0
@@ -89,9 +90,14 @@ export function FinalReportStep() {
               title="Verificación del proceso"
               detail={
                 contentReady
-                  ? `Las ${progress.contentTotal} etapas de contenido están completas.`
-                  : `Faltan ${progress.pendingSteps.length} de ${progress.contentTotal} etapas de contenido.`
+                  ? 'Los pasos previos al informe estan completos.'
+                  : `Faltan ${progress.pendingSteps.length} pasos previos al informe.`
               }
+            />
+            <GateItem
+              complete={Boolean(reportInstrumentSummary?.value)}
+              title="Instrumentos integrados"
+              detail={reportInstrumentSummary?.value ?? 'Sin instrumentos registrados para el informe.'}
             />
             <GateItem
               complete={signed}
@@ -138,7 +144,7 @@ export function FinalReportStep() {
 
           <details className="mt-4">
             <summary className="dt-section-link" style={{ cursor: 'pointer' }}>
-              Ver el detalle de las {progress.contentTotal} etapas
+              Ver el detalle de los pasos previos al informe
             </summary>
             <ul className="dt-checklist mt-3">
               {contentSteps.map((step) => {

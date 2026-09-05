@@ -6,6 +6,15 @@ export type SessionUser = {
   email: string
   role: RoleCode
   title: string
+  /**
+   * Acreditación profesional que firma los informes. Es un dato de normativa
+   * institucional -cambia de país a país y de colegio a colegio-, así que se
+   * configura, no se supone: si no está, los informes lo declaran ausente en
+   * lugar de imprimir un número inventado.
+   */
+  registrationType: string
+  registrationNumber: string
+  registrationAuthority: string
 }
 
 export type SessionInstitution = {
@@ -36,6 +45,9 @@ export async function getSession(): Promise<AppSession> {
       email: process.env.DETECTION_TEST_USER_EMAIL ?? '',
       role: parseRole(process.env.DETECTION_TEST_USER_ROLE) ?? 'PSICOPEDAGOGO',
       title: process.env.DETECTION_TEST_USER_TITLE ?? 'Psicopedagogía',
+      registrationType: process.env.DETECTION_TEST_USER_REGISTRATION_TYPE ?? '',
+      registrationNumber: process.env.DETECTION_TEST_USER_REGISTRATION_NUMBER ?? '',
+      registrationAuthority: process.env.DETECTION_TEST_USER_REGISTRATION_AUTHORITY ?? '',
     },
     institution: {
       id: process.env.DETECTION_TEST_INSTITUTION_ID ?? 'institucion-local',

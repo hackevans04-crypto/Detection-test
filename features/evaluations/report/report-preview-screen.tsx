@@ -1,46 +1,76 @@
 'use client'
 
 import Link from 'next/link'
-import { useState } from 'react'
-import { AlertCircle, ArrowLeft, Download, FileText, Loader2, Minus, Plus, Printer, X } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { AlertCircle, ArrowLeft, Download, FileText, Loader2, RefreshCcw, X } from 'lucide-react'
 import { ReportPreview } from '@/features/evaluations/report/report-preview'
 import { useEvaluation } from '@/features/evaluations/workspace/evaluation-provider'
 import { buildReport, reportFileName } from '@/lib/evaluations/report'
 import { generatePsychopedagogicalReport } from '@/lib/pdf-report'
 import { loadReportAssets } from '@/lib/evaluations/report-assets'
 
-const ZOOM_STEPS = [0.75, 0.9, 1, 1.15, 1.3, 1.5]
-
 /**
  * Visor del informe.
  *
- * Lo que se ve aquí sale del mismo `ReportDocument` que consume el generador
- * de PDF: no hay documento de muestra ni plantilla paralela que se desincronice.
- * Las miniaturas son los apartados reales del informe y sirven para saltar a
- * ellos, que es lo que se hace al revisar un documento largo.
+ * La vista previa ya no recrea el informe en HTML. Genera el mismo Blob PDF que
+ * descarga el usuario y lo muestra en un visor embebido, para que membrete,
+ * paginación, gráficos y saltos de página sean exactamente los mismos.
  */
 export function ReportPreviewScreen() {
   const { evaluation, update, saveNow } = useEvaluation()
-  const [zoomIndex, setZoomIndex] = useState(2)
-  const [activeSection, setActiveSection] = useState(1)
   const [busy, setBusy] = useState(false)
+  const [loadingPreview, setLoadingPreview] = useState(true)
   const [failure, setFailure] = useState<string | null>(null)
+  const [pdfBlob, setPdfBlob] = useState<Blob | null>(null)
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null)
 
-  const report = buildReport(evaluation)
-  const fileName = reportFileName(evaluation)
-  const zoom = ZOOM_STEPS[zoomIndex]
+  const report = useMemo(() => buildReport(evaluation), [evaluation])
+  const fileName = useMemo(() => reportFileName(evaluation), [evaluation])
+  const hasReportInstruments = report.summary.some(
+    (item) => item.label === 'Instrumentos aplicados' && !/No se registraron instrumentos|No se aplicaron instrumentos/i.test(item.value),
+  )
 
-  const goToSection = (number: number) => {
-    setActiveSection(number)
-    window.document.getElementById(`informe-seccion-${number}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }
+  useEffect(() => {
+    let cancelled = false
+    let objectUrl: string | null = null
+
+    async function createPreview() {
+      setLoadingPreview(true)
+      setFailure(null)
+      try {
+        const assets = await loadReportAssets()
+        const blob = generatePsychopedagogicalReport(report, assets)
+        objectUrl = URL.createObjectURL(blob)
+        if (cancelled) {
+          URL.revokeObjectURL(objectUrl)
+          return
+        }
+        setPdfBlob(blob)
+        setPdfUrl(objectUrl)
+      } catch (error) {
+        if (!cancelled) {
+          setFailure(error instanceof Error ? `No se pudo preparar la vista previa: ${error.message}` : 'No se pudo preparar la vista previa.')
+          setPdfBlob(null)
+          setPdfUrl(null)
+        }
+      } finally {
+        if (!cancelled) setLoadingPreview(false)
+      }
+    }
+
+    void createPreview()
+
+    return () => {
+      cancelled = true
+      if (objectUrl) URL.revokeObjectURL(objectUrl)
+    }
+  }, [report])
 
   const generate = async () => {
     setBusy(true)
     setFailure(null)
     try {
-      const assets = await loadReportAssets()
-      const blob = generatePsychopedagogicalReport(report, assets)
+      const blob = pdfBlob ?? generatePsychopedagogicalReport(report, await loadReportAssets())
       const url = URL.createObjectURL(blob)
       const anchor = window.document.createElement('a')
       anchor.href = url
@@ -81,7 +111,7 @@ export function ReportPreviewScreen() {
         </p>
       ) : null}
 
-      <div className="dt-viewer">
+      <div className="dt-viewer" data-viewer="report" data-report-has-instruments={hasReportInstruments}>
         <div className="dt-viewer-bar">
           <span className="dt-viewer-name">
             <FileText aria-hidden="true" />
@@ -92,39 +122,23 @@ export function ReportPreviewScreen() {
             <button
               type="button"
               className="dt-icon-button"
-              onClick={() => setZoomIndex((index) => Math.max(0, index - 1))}
-              disabled={zoomIndex === 0}
-              aria-label="Reducir el zoom"
+              onClick={() => window.location.reload()}
+              aria-label="Actualizar vista previa"
             >
-              <Minus aria-hidden="true" />
-            </button>
-            <span className="dt-viewer-zoom" aria-live="polite">
-              {Math.round(zoom * 100)}%
-            </span>
-            <button
-              type="button"
-              className="dt-icon-button"
-              onClick={() => setZoomIndex((index) => Math.min(ZOOM_STEPS.length - 1, index + 1))}
-              disabled={zoomIndex === ZOOM_STEPS.length - 1}
-              aria-label="Aumentar el zoom"
-            >
-              <Plus aria-hidden="true" />
-            </button>
-
-            <span className="dt-topbar-divider" aria-hidden="true" />
-
-            <button type="button" className="dt-icon-button" onClick={() => window.print()} aria-label="Imprimir el informe">
-              <Printer aria-hidden="true" />
+              <RefreshCcw aria-hidden="true" />
             </button>
             <button
               type="button"
               className="dt-icon-button"
               onClick={() => void generate()}
-              disabled={busy}
+              disabled={busy || loadingPreview}
               aria-label="Descargar el informe en PDF"
             >
               {busy ? <Loader2 className="dt-spin" aria-hidden="true" /> : <Download aria-hidden="true" />}
             </button>
+
+            <span className="dt-topbar-divider" aria-hidden="true" />
+
             <Link
               href={`/evaluaciones/${evaluation.id}/informe`}
               className="dt-icon-button"
@@ -136,34 +150,20 @@ export function ReportPreviewScreen() {
         </div>
 
         <div className="dt-viewer-body">
-          <nav className="dt-viewer-thumbs" aria-label="Apartados del informe">
-            {report.sections.map((section) => (
-              <button
-                key={section.number}
-                type="button"
-                className="dt-viewer-thumb"
-                aria-current={section.number === activeSection ? 'true' : undefined}
-                onClick={() => goToSection(section.number)}
-              >
-                <span className="dt-viewer-thumb-sheet" aria-hidden="true">
-                  <i className="dt-viewer-thumb-line" data-strong="true" style={{ width: '70%' }} />
-                  <i className="dt-viewer-thumb-line" style={{ width: '100%' }} />
-                  <i className="dt-viewer-thumb-line" style={{ width: '92%' }} />
-                  <i className="dt-viewer-thumb-line" style={{ width: '96%' }} />
-                  <i className="dt-viewer-thumb-line" style={{ width: '60%' }} />
-                  <i className="dt-viewer-thumb-line" style={{ width: '88%' }} />
-                </span>
-                <span className="dt-viewer-thumb-label">
-                  {section.number}. {section.title}
-                </span>
-              </button>
-            ))}
-          </nav>
-
-          <div className="dt-viewer-doc dt-scroll">
-            <div style={{ transform: `scale(${zoom})`, transformOrigin: 'top center', transition: 'transform 0.15s ease' }}>
+          <div className="dt-viewer-doc dt-report-doc">
+            {loadingPreview ? (
+              <div className="dt-pdf-loading" role="status">
+                <Loader2 className="dt-spin" aria-hidden="true" />
+                Preparando PDF...
+              </div>
+            ) : pdfUrl ? (
               <ReportPreview document={report} />
-            </div>
+            ) : (
+              <p className="dt-note" data-tone="danger" role="alert">
+                <AlertCircle aria-hidden="true" />
+                No se pudo mostrar el PDF.
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -174,7 +174,7 @@ export function ReportPreviewScreen() {
           Volver al informe
         </Link>
         <div className="dt-step-footer-actions">
-          <button type="button" className="dt-btn dt-btn-primary" onClick={() => void generate()} disabled={busy}>
+          <button type="button" className="dt-btn dt-btn-primary" onClick={() => void generate()} disabled={busy || loadingPreview}>
             {busy ? <Loader2 className="dt-spin" aria-hidden="true" /> : <Download aria-hidden="true" />}
             Generar informe PDF
           </button>

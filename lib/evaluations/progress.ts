@@ -13,6 +13,11 @@ import {
   type StepId,
   type StepStatus,
 } from '@/lib/evaluations/model'
+import {
+  getEvaluationProgress,
+  getStepCompletionState,
+  type EvaluationStepState,
+} from '@/lib/evaluations/evaluation-progress'
 
 function filled(value: string | undefined) {
   return (value ?? '').trim().length > 0
@@ -78,16 +83,15 @@ export function isStepComplete(evaluation: Evaluation, step: StepId): boolean {
       return functionalAreaSchema.every((schema) => isAreaComplete(evaluation.functionalAreas[schema.id], schema))
     case 'instrumentos': {
       const applications = selectedApplications(evaluation)
+      if (getStepCompletionState(evaluation, step).complete) return true
       return applications.length > 0 && applications.every((app) => deriveInstrumentStatus(app) === 'COMPLETED')
     }
     case 'resultados':
-      return filled(evaluation.interpretation)
+      return getStepCompletionState(evaluation, step).complete
     case 'conclusiones':
-      return evaluation.conclusions.some((entry) => filled(entry.text))
+      return getStepCompletionState(evaluation, step).complete
     case 'recomendaciones':
-      return recommendationGroupIds.some((group) =>
-        evaluation.recommendations[group].some((entry) => filled(entry.text)),
-      )
+      return getStepCompletionState(evaluation, step).complete
     case 'informe':
       return evaluation.report.status === 'GENERATED'
   }
@@ -113,7 +117,7 @@ function hasAnyInput(evaluation: Evaluation, step: StepId): boolean {
           filled(evaluation.functionalAreas[schema.id]?.description),
       )
     case 'instrumentos':
-      return selectedApplications(evaluation).length > 0
+      return selectedApplications(evaluation).length > 0 || evaluation.battery.length > 0 || evaluation.instrumentPackages.length > 0
     case 'resultados':
       return filled(evaluation.interpretation)
     case 'conclusiones':
@@ -153,25 +157,39 @@ export type EvaluationProgress = {
   completedSteps: number
   totalSteps: number
   percent: number
-  /** Las ocho etapas de contenido; la novena sólo emite el informe. */
+  /** Etapas de contenido antes de emitir el informe: seleccion + pasos 2-9. */
   contentCompleted: number
   contentTotal: number
   contentPercent: number
   pendingSteps: StepId[]
 }
 
+const WORKFLOW_TOTAL = 10
+const contentStepIds = stepIds.filter((step) => step !== 'informe')
+
+function isWorkflowStepDone(state: EvaluationStepState) {
+  return state.status === 'COMPLETED' || state.status === 'COMPLETED_WITH_LIMITATIONS'
+}
+
 export function evaluationProgress(evaluation: Evaluation): EvaluationProgress {
-  const completed = stepIds.filter((step) => isStepComplete(evaluation, step))
-  const contentSteps = stepIds.filter((step) => step !== 'informe')
-  const contentCompleted = contentSteps.filter((step) => isStepComplete(evaluation, step))
+  const workflow = getEvaluationProgress(evaluation)
+  const completedWorkflow = workflow.filter(isWorkflowStepDone)
+  const pendingSteps = contentStepIds.filter((step) => !getStepCompletionState(evaluation, step).complete)
+  const reportGenerated = getStepCompletionState(evaluation, 'informe').complete
+  const currentStepNumber =
+    reportGenerated || pendingSteps.length === 0
+      ? WORKFLOW_TOTAL
+      : stepIds.indexOf(pendingSteps[0]) + 2
+  const contentCompleted = 1 + contentStepIds.length - pendingSteps.length
+
   return {
-    completedSteps: completed.length,
-    totalSteps: stepIds.length,
-    percent: Math.round((completed.length / stepIds.length) * 100),
-    contentCompleted: contentCompleted.length,
-    contentTotal: contentSteps.length,
-    contentPercent: Math.round((contentCompleted.length / contentSteps.length) * 100),
-    pendingSteps: contentSteps.filter((step) => !isStepComplete(evaluation, step)),
+    completedSteps: Math.max(completedWorkflow.length, currentStepNumber),
+    totalSteps: WORKFLOW_TOTAL,
+    percent: Math.round((currentStepNumber / WORKFLOW_TOTAL) * 100),
+    contentCompleted,
+    contentTotal: WORKFLOW_TOTAL - 1,
+    contentPercent: Math.round((contentCompleted / (WORKFLOW_TOTAL - 1)) * 100),
+    pendingSteps,
   }
 }
 
@@ -198,6 +216,7 @@ export const statusLabels: Record<EvaluationStatus, string> = {
  * que es donde el profesional debe retomar.
  */
 export function currentStageLabel(evaluation: Evaluation) {
+  if (evaluation.report.status === 'GENERATED') return 'Finalizada'
   const pending = evaluationProgress(evaluation).pendingSteps
   if (pending.length === 0) return stepLabels.informe
   return stepLabels[pending[0]]

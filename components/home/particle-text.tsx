@@ -1,9 +1,11 @@
 'use client'
 
 import { useRef, type ElementType, type MutableRefObject, type ReactNode, type Ref } from 'react'
-import type { HeroSceneState } from '@/lib/hero/depth'
 import { rasterizeText } from '@/lib/hero/text-raster'
 import { usePrint, type PrintTrigger } from './use-print'
+
+/** Ver el mismo tipo en `use-print.ts`: la forma mínima de reloj que este efecto necesita. */
+type PrintClock = { forcedProgress: number | null; time: number }
 
 const findBody = (host: HTMLElement) => host.querySelector<HTMLElement>('.print-body')
 const sampleBody = (piece: HTMLElement, width: number, height: number, dpr: number) =>
@@ -32,7 +34,9 @@ type ParticleTextProps = {
   bleed?: number
   budget?: number
   className?: string
-  signal?: MutableRefObject<HeroSceneState>
+  /** De dónde sale el progreso 0–1 — ver el mismo prop en `use-print.ts`. Por defecto, el de Inicio. */
+  progressSource?: () => number
+  signal?: MutableRefObject<PrintClock>
   children: ReactNode
 }
 
@@ -59,6 +63,7 @@ export function ParticleText({
   bleed,
   budget = 1800,
   className,
+  progressSource,
   signal,
   children,
 }: ParticleTextProps) {
@@ -77,6 +82,7 @@ export function ParticleText({
     budget,
     gap: TEXT_GAP,
     dust: 0,
+    progressSource,
     signal,
   })
 

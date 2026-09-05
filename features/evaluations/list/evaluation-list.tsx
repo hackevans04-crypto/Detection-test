@@ -24,7 +24,7 @@ import { SelectField } from '@/components/ui/fields'
 import { DateField } from '@/components/ui/date-field'
 import { EmptyState, ErrorState, LoadingSkeleton } from '@/components/ui/states'
 import { Avatar, EvaluationProgressBar, EvaluationStatusBadge } from '@/features/evaluations/components/evaluation-bits'
-import { getInstrument, instruments } from '@/instruments/catalog'
+import { getInstrument } from '@/instruments/catalog'
 import { useSession } from '@/lib/auth/session-context'
 import { ageAt, formatAgeShort, formatUpdatedAt, orDash } from '@/lib/evaluations/format'
 import { stepIds, stepLabels, type Evaluation } from '@/lib/evaluations/model'
@@ -134,6 +134,14 @@ export function EvaluationList() {
   }
 
   const evaluations = useMemo(() => (state.kind === 'ready' ? state.evaluations : []), [state])
+
+  // Las opciones del filtro son los instrumentos que estos expedientes tienen
+  // aplicados de verdad, no un catálogo. Ofrecer un instrumento que ninguna
+  // evaluación usa da un filtro que sólo sabe devolver cero resultados.
+  const instrumentOptions = useMemo(
+    () => [...new Set(evaluations.flatMap(instrumentNames))].sort((a, b) => a.localeCompare(b)),
+    [evaluations],
+  )
 
   const counts = useMemo(
     () =>
@@ -306,7 +314,7 @@ export function EvaluationList() {
                       label="Instrumento aplicado"
                       value={advanced.instrument}
                       onChange={(next) => setAdvanced((current) => ({ ...current, instrument: next }))}
-                      options={instruments.map((instrument) => instrument.nombre)}
+                      options={instrumentOptions}
                       placeholder="Cualquier instrumento"
                     />
                     <div />
@@ -357,7 +365,7 @@ export function EvaluationList() {
                           <th scope="col">Etapa actual</th>
                           <th scope="col">Instrumento</th>
                           <th scope="col">Progreso</th>
-                          <th scope="col">Actualización</th>
+                          <th scope="col">Actualizacion</th>
                           <th scope="col">Estado</th>
                           <th scope="col">
                             <span className="dt-sr-only">Acciones</span>

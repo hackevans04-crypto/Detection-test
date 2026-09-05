@@ -11,9 +11,9 @@ import { can, type PermissionCode } from '@/lib/domain/authorization'
 /**
  * Navegación principal.
  *
- * Dos entradas y nada más. Casos, instrumentos, resultados, informes,
- * historial y recursos no son módulos: son etapas dentro de una evaluación, y
- * se alcanzan desde el workspace de la evaluación a la que pertenecen.
+ * El avance interno de una evaluación vive en el stepper del workspace, no en
+ * el menú global. Así el sidebar se mantiene estable y no compite con el
+ * contenido del caso.
  */
 const navigation = [
   {
@@ -61,7 +61,7 @@ function Navigation({ onNavigate }: { onNavigate?: () => void }) {
     .filter((group) => group.items.length > 0)
 
   return (
-    <nav className="dt-sidebar-nav dt-scroll" aria-label="Navegación principal">
+    <nav className="dt-sidebar-nav" aria-label="Navegación principal">
       {groups.map((group) => (
         <section key={group.title}>
           <p className="dt-nav-group-title">{group.title}</p>
@@ -86,16 +86,8 @@ function Navigation({ onNavigate }: { onNavigate?: () => void }) {
   )
 }
 
-// El botón de menú vive en la barra superior de cada página, que es hija del
-// shell: este contexto le presta la única acción que necesita del shell.
 const MenuButtonContext = createContext<(() => void) | null>(null)
 
-/**
- * La preferencia de colapso vive en `localStorage`, que es una fuente externa
- * a React. Se lee con `useSyncExternalStore` en vez de con un efecto: el
- * servidor pinta siempre la barra expandida y el cliente corrige en el primer
- * render, sin un paso intermedio de estado.
- */
 const collapseListeners = new Set<() => void>()
 
 const collapseStore = {
@@ -121,7 +113,7 @@ const collapseStore = {
     try {
       window.localStorage.setItem(COLLAPSE_KEY, next ? '1' : '0')
     } catch {
-      /* La preferencia es un lujo, no un requisito. */
+      /* La preferencia es opcional. */
     }
     for (const listener of collapseListeners) listener()
   },
@@ -155,14 +147,17 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, [drawerOpen])
 
   return (
-    <div className="dt-shell" style={{ ['--dt-sidebar-width' as string]: collapsed ? '84px' : '276px' }}>
+    <div
+      className="dt-shell"
+      data-collapsed={collapsed}
+      style={collapsed ? { ['--dt-sidebar-width' as string]: '84px' } : undefined}
+    >
       <aside className="dt-sidebar" data-collapsed={collapsed}>
         <div className="dt-sidebar-head">
           <Brand compact={collapsed} />
         </div>
         <Navigation />
         <div className="dt-sidebar-foot">
-          {/* El colapso es una acción con nombre, no un icono que adivinar. */}
           <button
             type="button"
             className="dt-collapse-button"
@@ -178,9 +173,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       </aside>
 
-      {drawerOpen ? (
-        <button type="button" className="dt-drawer-backdrop" aria-label="Cerrar menú" onClick={closeDrawer} />
-      ) : null}
+      {drawerOpen ? <button type="button" className="dt-drawer-backdrop" aria-label="Cerrar menú" onClick={closeDrawer} /> : null}
 
       <aside className="dt-drawer" data-open={drawerOpen} aria-hidden={!drawerOpen} inert={!drawerOpen || undefined}>
         <div className="dt-sidebar-head">

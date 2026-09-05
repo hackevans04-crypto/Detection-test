@@ -1,4 +1,4 @@
-@import 'tailwindcss';
+@import '../node_modules/tailwindcss/index.css';
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
 @import 'lenis/dist/lenis.css';
@@ -875,7 +875,37 @@
 .olbrox-image img { position: relative; z-index: 1; width: 100%; height: 100%; filter: drop-shadow(0 0 18px rgba(40, 167, 255, .48)); }
 
 /*
-  Impresión por partículas de los dos logotipos.
+  Tercera marca, en la columna central.
+
+  Vive en la misma fila que UTEQ y Olbrox, centrada como `.developer-card`.
+  La columna central es ancha a propósito para que el cerebro se siga viendo
+  entre los dos paneles laterales (ver comentario de `.institutional-strip`),
+  así que esta tarjeta va deliberadamente pequeña y empujada por debajo de la
+  fila (`align-self: end` + `translate`) para quedar a la altura del pedestal,
+  no de la mitad alta del cerebro, que es la silueta que más importa leer.
+*/
+/*
+  El desplazamiento va en `top`, no en `translate`: `.institutional-card` ya
+  usa `translate` para su propia flotación (`institutional-float`), y los
+  fotogramas de esa animación fijan `translate: 0 0`/`0 -9px` en cada ciclo —
+  un `translate` estático aquí se pisaría con ella. `top` es una propiedad
+  aparte, compone sin conflicto y `.institutional-card` ya es `position:
+  relative`.
+*/
+.neuro-card { justify-content: center; align-self: end; text-align: center; padding-bottom: 0; top: 56px; }
+.neuro-image { position: relative; width: 150px; height: 130px; }
+.neuro-image::after {
+  content: '';
+  position: absolute;
+  z-index: 0;
+  inset: -26%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(56, 214, 200, .22), transparent 70%);
+}
+.neuro-image img { position: relative; z-index: 1; width: 100%; height: 100%; filter: drop-shadow(0 0 16px rgba(56, 214, 255, .4)); }
+
+/*
+  Impresión por partículas de los tres logotipos.
 
   El lienzo desborda su caja —`ParticleLogo` le pone medidas y posición en
   píxeles, porque el sangrado depende del tamaño real de cada marca— y va por
@@ -898,31 +928,16 @@
 .print-host[data-print='live'] img,
 .print-host[data-print='live'] .print-body,
 .print-host[data-print='live']::after { opacity: var(--print-reveal, 1); }
-.institutional-connection { display: flex; align-items: center; align-self: stretch; justify-content: center; gap: 0; }
-/*
-  El enlace entre los dos paneles.
-
-  Cruza justo por delante del hemisferio digital, que es la zona más brillante
-  de la escena: con un pelo de 1 px y opacidad media desaparecía por completo
-  contra él. Necesita grosor, un núcleo blanco y un halo que lo despegue del
-  fondo para que se lea como un cable de datos entre las dos instituciones.
-*/
-.institutional-connection span {
-  width: 100px;
-  height: 2px;
-  transform: scaleX(0);
-  transform-origin: left;
-  border-radius: 2px;
-  background: linear-gradient(90deg, rgba(70, 214, 255, .35), #b9f3ff 45%, #ffffff 50%, #b9f3ff 55%, rgba(70, 214, 255, .35));
-  box-shadow: 0 0 14px rgba(60, 220, 255, .95), 0 0 34px rgba(0, 170, 255, .55);
+.print-host[data-print-state='dissolved'] img,
+.print-host[data-print-state='dissolved'] .print-body,
+.print-host[data-print-state='dissolved']::after { opacity: 0 !important; }
+.hero-viewport[data-copy-state='gone'] .hero-copy {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
 }
-.institutional-connection i {
-  width: 9px;
-  height: 9px;
-  border: 1px solid rgba(180, 244, 255, .95);
-  border-radius: 50%;
-  background: radial-gradient(circle, #eafcff 0 35%, rgba(60, 208, 255, .35) 60%, transparent 72%);
-  box-shadow: 0 0 14px rgba(60, 220, 255, .85);
+.hero-viewport[data-copy-state='gone'] .hero-copy .print-canvas {
+  opacity: 0 !important;
 }
 
 /* ------------------------------------------------- energía y transición */
@@ -1171,6 +1186,7 @@
   .institutional-card a { margin-top: 6px; }
   .crest-image { width: 68px; height: 88px; }
   .olbrox-image { width: 190px; height: 52px; }
+  .neuro-image { width: 120px; height: 104px; }
   .developer-content p { max-width: 250px; font-size: 12px; }
   .security-shield { flex-basis: 64px; width: 64px; height: 76px; }
 }
@@ -1237,8 +1253,6 @@
   .institutional-strip { grid-template-columns: 1fr; height: auto; overflow: visible; }
   .institutional-card { border-right: 0; border-bottom: 1px solid rgba(80,158,220,.2); }
   .institutional-card:last-child { border-bottom: 0; }
-  .institutional-connection { min-height: 28px; }
-  .institutional-connection span { width: 26px; transform: rotate(90deg) scaleX(0); }
   .developer-card { align-items: center; }
 }
 
@@ -1467,19 +1481,26 @@
 
 @media (max-width: 900px) {
   .hero-institutional .institutional-wrap { padding: 0 12px; }
+  /*
+    Tres columnas iguales, no dos. Con la tercera marca en el reparto, un
+    grid de dos columnas dejaba a Olbrox solo en una segunda fila, con media
+    fila vacía al lado: una marca en fila de tres se lee, una marca sobrante
+    en fila propia se lee como un error de maquetación.
+  */
   .hero-institutional .institutional-strip {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: 8px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
     min-height: 0;
   }
-  .hero-institutional .institutional-connection { display: none; }
   .hero-institutional .institutional-card,
-  .hero-institutional .developer-card {
+  .hero-institutional .developer-card,
+  .hero-institutional .neuro-card {
     min-height: 154px;
     flex-direction: column;
     justify-content: center;
+    align-self: stretch;
     gap: 8px;
-    padding: 12px 8px;
+    padding: 12px 6px;
     text-align: center;
     animation: none;
   }
@@ -1488,7 +1509,12 @@
   .hero-institutional .institutional-role,
   .hero-institutional .eyebrow-small { margin-top: 3px; font-size: 8px; }
   .hero-institutional .crest-image { width: 42px; height: 54px; }
-  .hero-institutional .olbrox-image { width: 112px; height: auto; }
+  .hero-institutional .olbrox-image { width: 96px; height: auto; }
+  .hero-institutional .neuro-image { width: 68px; height: 59px; }
+  /* En esta franja angosta el desplazamiento hacia el pedestal no hace
+     falta: las tres tarjetas ya se comprimen a `min-height:154px` y se
+     centran verticalmente en su propia celda (ver regla de arriba). */
+  .hero-institutional .neuro-card { top: 0; }
 }
 
 /* ------------------------------------------------- navegación inmersiva */
@@ -3418,6 +3444,10 @@ a[data-transition-source] {
   inset: 0;
   opacity: clamp(0, calc((var(--platform-progress, 0) - .025) * 18), 1);
   pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(18, 148, 255, calc(var(--platform-progress, 0) * .16)), transparent 34%),
+    radial-gradient(circle at 16% 72%, rgba(0, 215, 255, calc(var(--platform-progress, 0) * .10)), transparent 28%),
+    linear-gradient(180deg, rgba(2, 12, 29, .18), rgba(1, 7, 19, .34));
 }
 
 .platform-semantic-anchor {
@@ -3458,8 +3488,9 @@ a[data-transition-source] {
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(180deg, rgba(0, 5, 15, 0.42), transparent 20%, transparent 72%, rgba(0, 4, 13, 0.64)),
-    radial-gradient(circle at 52% 48%, transparent 42%, rgba(0, 4, 14, 0.58) 112%);
+    linear-gradient(180deg, rgba(0, 5, 15, 0.28), transparent 18%, transparent 74%, rgba(0, 4, 13, 0.58)),
+    radial-gradient(circle at 52% 46%, rgba(28, 155, 255, .08), transparent 28%, rgba(0, 4, 14, 0.5) 108%),
+    linear-gradient(115deg, rgba(91, 118, 255, .12), transparent 34%, rgba(0, 225, 255, .1) 72%, transparent);
   z-index: 5;
 }
 
@@ -3508,52 +3539,116 @@ a[data-transition-source] {
 
 .platform-world-title {
   position: absolute;
-  left: clamp(84px, 9vw, 172px);
-  top: 28%;
-  width: 350px;
-  padding: 12px 0 14px 26px;
+  left: clamp(72px, 7.2vw, 138px);
+  top: 26%;
+  width: min(640px, 44vw);
+  padding: 8px 0 18px;
   color: #f4fbff;
   font-family: var(--font-space-grotesk), sans-serif;
-  text-transform: uppercase;
-  text-shadow: 0 0 24px rgba(44, 201, 255, 0.32);
-  border-left: 1px solid rgba(79, 217, 255, .4);
-  background: none;
-  text-shadow: 0 2px 18px #010713, 0 0 28px rgba(44, 201, 255, 0.46);
+  text-transform: none;
+  border-left: 0;
+  /*
+    Antes sólo había resplandor en tonos cian, la misma familia de color que
+    el brillo del cubo detrás: sobre un fragmento encendido el halo sumaba
+    matiz, no contraste de luminancia, y el texto se perdía. Ahora hay capas
+    oscuras apiladas cerca del glifo (contraste real, mire lo que mire
+    detrás) y un lavado angosto sólo tras el bloque de texto —no una tarjeta
+    entera— para sostenerlo en cualquier fondo.
+  */
+  background:
+    linear-gradient(90deg, rgba(1, 7, 19, .52), rgba(1, 7, 19, .2) 58%, transparent),
+    radial-gradient(100% 150% at 8% 46%, rgba(34, 206, 255, .14) 0%, rgba(1, 7, 19, .26) 56%, transparent 78%);
+  text-shadow:
+    0 1px 0 #010713,
+    0 2px 6px rgba(1, 7, 19, .92),
+    0 0 18px rgba(1, 7, 19, .85),
+    0 0 28px rgba(44, 201, 255, 0.4);
   transform: translate3d(0, var(--title-y, 18px), var(--title-z, -120px)) rotateX(var(--title-tilt, 7deg));
   filter: blur(var(--title-blur, 6px));
   transition: opacity 100ms linear;
 }
 
-.platform-world-title span {
+.platform-world-title > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   color: #62defe;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.28em;
+  font-size: clamp(.82rem, .9vw, .95rem);
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
 }
 
 .platform-world-title h2 {
-  margin: 10px 0 0;
-  font-size: 52px;
-  font-weight: 650;
-  letter-spacing: 0.02em;
-  line-height: 0.96;
+  margin: 12px 0 0;
+  color: #f7faff;
+  font-size: clamp(3.05rem, 3.8vw, 4.05rem);
+  font-weight: 720;
+  letter-spacing: -.055em;
+  line-height: .98;
 }
 
 .platform-world-title strong {
   display: block;
-  margin-top: 8px;
-  color: #26aeea;
-  font-size: 22px;
-  letter-spacing: 0.13em;
+  max-width: 12ch;
+  margin-top: 6px;
+  color: #34d9ff;
+  font-size: clamp(2.35rem, 3.05vw, 3.55rem);
+  font-weight: 720;
+  letter-spacing: -.045em;
+  line-height: 1.02;
+  text-shadow:
+    0 1px 0 #010713,
+    0 2px 8px rgba(1, 7, 19, .9),
+    0 0 30px rgba(52, 217, 255, .36);
 }
 
 .platform-world-title p {
-  max-width: 31ch;
-  margin: 14px 0 0;
-  color: rgba(222, 244, 253, .78);
-  font: 500 12px/1.55 var(--font-inter), sans-serif;
-  letter-spacing: .01em;
+  max-width: 530px;
+  margin: 22px 0 0;
+  color: #c4d4e7;
+  font: 500 clamp(.95rem, 1.18vw, 1.05rem)/1.68 var(--font-inter), sans-serif;
+  letter-spacing: 0;
   text-transform: none;
+}
+
+.platform-status {
+  position: absolute;
+  z-index: 9;
+  right: clamp(58px, 7vw, 128px);
+  top: 30%;
+  width: min(430px, 34vw);
+  padding: 20px 24px 22px;
+  opacity: 0;
+  color: #f4fbff;
+  background:
+    linear-gradient(135deg, rgba(4, 20, 43, .74), rgba(7, 38, 64, .38)),
+    radial-gradient(circle at 0% 0%, rgba(54, 217, 255, .22), transparent 62%);
+  border: 1px solid rgba(100, 223, 255, .22);
+  border-radius: 18px;
+  box-shadow: 0 24px 80px rgba(0, 8, 30, .34), inset 0 0 36px rgba(63, 211, 255, .06);
+  backdrop-filter: blur(14px);
+  transform: translate3d(0, var(--status-y, 18px), 0);
+  filter: blur(var(--status-blur, 5px));
+  transition: opacity 100ms linear;
+}
+
+.platform-status span {
+  display: block;
+  color: #62defe;
+  font: 700 clamp(.78rem, .82vw, .9rem)/1 var(--font-space-grotesk), sans-serif;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.platform-status strong {
+  display: block;
+  max-width: 31ch;
+  margin-top: 12px;
+  color: #edfaff;
+  font: 650 clamp(1.18rem, 1.45vw, 1.55rem)/1.32 var(--font-space-grotesk), sans-serif;
+  letter-spacing: -.015em;
+  text-shadow: 0 2px 12px rgba(0, 6, 18, .8);
 }
 
 .platform-concept {
@@ -3567,9 +3662,20 @@ a[data-transition-source] {
   pointer-events: none;
   border: 0;
   border-radius: 0;
-  background: none;
+  /*
+    Mismo criterio que `.platform-world-title`: durante el desensamblaje del
+    cubo el fondo puede ser un fragmento brillante, y el resplandor cian por
+    sí solo no bastaba para leer "EVALUACIÓN" encima. El lavado radial es un
+    vignette angosto detrás del texto, no una tarjeta —se desvanece a los
+    76% y no lleva borde ni sombra propia—.
+  */
+  background: radial-gradient(130% 170% at 0% 45%, rgba(1, 7, 19, .5) 0%, rgba(1, 7, 19, .28) 50%, transparent 76%);
   box-shadow: none;
-  text-shadow: 0 2px 12px #010713, 0 0 20px rgba(26, 188, 238, .2);
+  text-shadow:
+    0 1px 0 #010713,
+    0 2px 5px rgba(1, 7, 19, .9),
+    0 0 14px rgba(1, 7, 19, .8),
+    0 0 20px rgba(26, 188, 238, .28);
   backdrop-filter: none;
   transform: translate3d(0, var(--concept-y, 16px), var(--concept-z, -130px)) rotateX(var(--concept-tilt, 8deg));
   filter: blur(var(--concept-blur, 5px));
@@ -3659,9 +3765,11 @@ a[data-transition-source] {
 
 @media (max-width: 899px) {
   .platform-viewport { min-height: 540px; }
-  .platform-world-title { width: 270px; padding: 16px; }
-  .platform-world-title h2 { font-size: 38px; }
-  .platform-world-title strong { font-size: 17px; }
+  .platform-world-title { top: 20%; width: min(560px, calc(100vw - 104px)); padding: 6px 0 14px; }
+  .platform-world-title h2 { font-size: clamp(2.55rem, 7vw, 3.35rem); line-height: .96; }
+  .platform-world-title strong { max-width: 13ch; font-size: clamp(1.85rem, 5vw, 2.65rem); line-height: 1.02; }
+  .platform-world-title p { max-width: 490px; margin-top: 14px; font-size: .88rem; line-height: 1.5; }
+  .platform-status { right: 52px; width: min(320px, calc(100vw - 104px)); }
   .platform-concept { width: 205px; padding: 12px 14px; }
   .platform-concept h3 { font-size: 17px; }
   .platform-next { display: none; }
@@ -3669,9 +3777,11 @@ a[data-transition-source] {
 
 @media (max-width: 639px) {
   .platform-scroll-note { bottom: max(14px, env(safe-area-inset-bottom)); }
-  .platform-world-title { left: 52px; top: 17%; width: calc(100vw - 76px); }
-  .platform-world-title h2 { font-size: 31px; }
-  .platform-world-title strong { font-size: 14px; }
+  .platform-world-title { left: 28px; top: 15%; width: calc(100vw - 56px); padding: 0; }
+  .platform-world-title h2 { font-size: clamp(2.35rem, 10.8vw, 3rem); line-height: .98; letter-spacing: -.045em; }
+  .platform-world-title strong { max-width: 12ch; font-size: clamp(1.85rem, 8.6vw, 2.45rem); line-height: 1.04; letter-spacing: -.035em; }
+  .platform-world-title p { max-width: 100%; margin-top: 16px; font-size: .96rem; line-height: 1.58; overflow-wrap: anywhere; }
+  .platform-status { left: 52px; right: auto; top: 47%; width: calc(100vw - 76px); }
   .platform-concept { left: 52px; right: auto; top: auto; bottom: 84px; width: calc(100vw - 76px); }
   .platform-concept p { font-size: 10px; }
 }
